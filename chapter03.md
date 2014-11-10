@@ -3,7 +3,7 @@ Now that we have a semi-working registration system, we need to let users log in
 
 To get started, we will create views for logging in and logging out. Once those are done we will progress in a fashion similar to the registration systems: services, controllers, etc.
 
-## Login: API Views and URLs
+## Login API Views and URLs
 Open up `authentication/views.py` and add the following imports and class:
 
     import json
@@ -100,7 +100,7 @@ Open up `thinkster_django_angular_boilerplate/settings.py` and add the following
 {x: url_login}
 Add an API endpoint for `LoginView`
 
-## Login: AngularJS Service
+## Authentication Service
 Let's add some more methods to our `Authentication` service. We will do this in two stages. First we will add a `login()` method and then we will add some utility methods for storing session data in the browser.
 
 Open `static/javascripts/authentication/services/authentication.service.js` and add the following method to the `Authentication` object we created earlier:
@@ -252,7 +252,7 @@ Create a `login.html` template
 
 We won't spend any time talking about this because it's no different than the template for the registration form.
 
-## Registration: AngularJS Controller
+## Back to the Registration Controller
 Taking a step back, let's add a check to `RegisterController` and redirect the user if they are already authenticated.
 
 Open `static/javascripts/authentication/controllers/register.controller.js` and add the following just inside the definition of the controller:
@@ -369,7 +369,7 @@ Refactor `RegisterController`
 {x: angularjs_login_controller_refactor}
 Refactor `LoginController`
 
-## Login: AngularJS Routes and Modules
+## Login Routes and Modules
 The next step is to create the client-side routes for the login form and add define any new modules we've created.
 
 Open up `static/javascripts/borg.routes.js` and add a route for the login form:
@@ -396,7 +396,7 @@ Update the definition of the `borg.authentication.services` module in `authentic
 {x: angularjs_authentication_module_ngcookies}
 Make `ngCookies` a dependency of the `.borg.authentication.services` module
 
-## Login: Include new .js files
+## Include new .js files
 If you can believe it, we've only created one new JavaScript file since the last time: `login.controller.js`. Let's add it to `javascripts.html` with the other JavaScript files:
 
     <script type="text/javascript" src="{% static 'javascripts/authentication/controllers/login.controller.js' %}"></script>

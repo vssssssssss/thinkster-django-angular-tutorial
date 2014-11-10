@@ -1,4 +1,4 @@
-# Building an authentication system
+## Building an authentication system
 In the last chapter, we create a `UserProfile` model so we can store some extra information about our users. 
 
 Now we will build an authentication system that let's users register, log in, and log out. We will cover write API views with Django REST Framework, creating an `Authentication` service with AngularJS and finally the templates and controllers that will display various forms to the client.
@@ -8,7 +8,7 @@ Because we can't log in users that don't exist, it makes sense to start with reg
 
 To register a user, we need an API endpoint that will create the user, an AngularJS service to make an AJAX request to the API and a registration form. Let's make the API endpoint first.
 
-## Registration: API Views and URLs
+## Registration API Views and URLs
 Open `authentication/views.py` and replace it's contents with the following code:
 
     from django.contrib.auth.models import User
@@ -52,7 +52,7 @@ Add an API endpoint for `UserCreateView`
 
 *NOTE: It is very important that the last URL in the above snippet always be the last URL. This is known as a passthrough route. It accepts all requests not matched by any other rules and sends them to the front end for AngularJS to process. The order of other URLs is insignificant.*
 
-## Registration: AngularJS Service
+## Authentication Service
 With the API endpoint in place, we can create an AngularJS service that will handle communication between the client and the server.
 
 Make a file in `static/javascripts/authentication/services/` called `authentication.service.js` and add the following code:
@@ -101,7 +101,7 @@ At this point, the `Authentication` service has only one method: `register`, whi
 
 As mentioned before, we need to make an AJAX request to the API endpoint we made. As data, we include the `username`, `password` and `email` parameters this method received. We have no reason to do anything special with the response, so we will let the caller of `Authentication.register` handle the callback.
 
-## Registration: AngularJS Controller and Template
+## Registration Controller and Template
 We just finished the first iteration of our first service. Now we need something that can call `Authentication.register`. This is where controllers come in. In this section we will create our first AngularJS controller and a template that will being viewable in the client.
 
 Create a file in `static/javascripts/authentication/controllers/` called `register.controller.js` and add the following:
@@ -192,7 +192,7 @@ This is the line responsible for calling `$scope.register`, which we set up in o
 
 On each `<input />`, you will see another directive, `ng-model`. `ng-model` is responsible for storing the value of the input on `$scope`. `ng-mdodel="username"` means AngularJS should store the value of this input at `$scope.username`. This is how we get the username, password, and email when `$scope.register` is called.
 
-## Registration: AngularJS Routes and Modules
+## Registration Routes and Modules
 Let's set up some client-side routing so users of the app navigate to the register form.
 
 Create a file in `static/javascripts` called `borg.routes.js` and add the following:
@@ -274,7 +274,7 @@ Open `static/javascripts/borg.js`, define the required modules, and include them
 {x: angularjs_borg_module}
 Update the `borg` module to include it's new dependencies
 
-## Registration: Hash routing
+## Hash routing
 By default, Angular using a feature called hash routing. If you've ever seen a URL that looks like `www.google.com/#/search` then you know what I'm talking about. Again, this is personal preference, but I think those are incredibly ugly. To get rid of hash routing, we can enabled `$locationProvider.html5Mode`. In older browsers that do not support HTML5 routing, Angular will intelligently fall back to hash routing.
 
 Create a file in `static/javascripts/` called `borg.config.js` and give it the following content:
@@ -303,7 +303,7 @@ Because we are using a new module here, we need to open up `static/javascripts/b
 {x: angularjs_config_module}
 Define the `borg.config` module
 
-## Registration: Include new .js files
+## Include new .js files
 In this chapter so far, we have already created a number of new JavaScript files. We need to include these in the client by adding them to `templates/javascripts.html` inside the `{% compress js %}` block (more on django-compressor later).
 
 Open `templates/javascripts.html` and add the following above the `{% endcompress %}` tag:
@@ -324,7 +324,7 @@ Keeping in mind that we still need to implement the success and error callbacks 
 
 Run `python manage.py runserver` from the root directory of your project. Navigate to `http://localhost:8000/` and click on the **Register** button in the top-right corner. Before you submit the form, make sure your browser console is open. Fill in each field and submit the form. If all went well, you should see *Success!* show up in your browser console.
 
-Congratulations! You're well on your way to having a fully working web application built with Django and AngularJS. But we aren't out of the woods just yet! Let's keep on trucking'.
+Congratulations! You're well on your way to having a fully working web application built with Django and AngularJS. But we aren't out of the woods just yet! Let's keep on truckin'.
 
 {x: high_five_1}
 Give yourself a high five. Seriously. Do it now.

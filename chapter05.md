@@ -85,13 +85,18 @@ Create a new file in `thoughts/` called `serializers.py` and add the following:
 
 
     class ThoughtSerializer(serializers.ModelSerializer):
-        author = UserProfileSerializer()
+        author = UserProfileSerializer(required=False)
 
         class Meta:
             model = Thought
 
             fields = ('id', 'author', 'content', 'created_at', 'updated_at')
             read_only_fields = ('id', 'author', 'created_at', 'updated_at')
+
+        def get_validation_exclusions(self, *args, **kwargs):
+            exclusions = super(ThoughtSerializer, self).get_validation_exclusions()
+
+            return exclusions + ['author']
 
 {x: django_serializer_thoughtserializer}
 Create a serializer called `ThoughtSerializer`
@@ -103,6 +108,15 @@ There isn't much here that's new, but there is one line in particular I want to 
 We explicitly defined a number of fields in our `UserProfileSerializer` from before, but this definition is a little different.
 
 When serializing a `Thought` object, we want to include all of the author's information. Within Django REST Framework, this is known as a nested relationship. Basically, we are serializing the `UserProfile` related to this `Thought` and including it in our JSON.
+
+We pass `required=False` here because we will set the author of this post automatically.
+
+     def get_validation_exclusions(self, *args, **kwargs):
+          exclusions = super(ThoughtSerializer, self).get_validation_exclusions()
+
+          return exclusions + ['author']
+
+For the same reason we use `required=False`, we must also add `author` to the list of validations we wish to skip.
 
 At this point, feel free to open up your shell with `python manage.py shell` and play around with creating and serializing `Thought` objects.
 
