@@ -7,7 +7,7 @@ In this tutorial you will build a simplified Google+ clone called “Not Google 
  2.  [Extending Django's built-in User model](chapter01.md) **FINAL**
  3.  [Serializing the User and UserProfile models](chapter02.md) **FINAL**
  4.  [Registering new users](chapter03.md) **FINAL**
- 5.  [Login](chapter04.md)
+ 5.  [Logging users in](chapter04.md)
  6.  [Logout](chapter05.md)
  7.  [Modeling the Borg's Thoughts](chapter06.md)
  8.  [Rendering the Borg's Thoughts](chapter07.md)
