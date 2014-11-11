@@ -1,4 +1,7 @@
-## Logout: API Views and URLs
+# Logging users out
+Given that users can register and login, we can assume they will want a way to log out. People get mad when they can't log out.
+
+## Making a logout API view
 Let's implement the last authentication-related API view.
 
 Open up `authentication/views.py` and add the following imports and class:
@@ -13,10 +16,10 @@ Open up `authentication/views.py` and add the following imports and class:
         def post(self, request, format=None):
             logout(request)
 
-            return Response()
+            return Response({ 'success': True })
 
 {x: django_logout_view}
-Add a `LogoutView` to `authentication/views.py`
+Make a view called `LogoutView` in `authentication/views.py`
 
 There are only a few new things to talk about this time.
 
@@ -28,7 +31,7 @@ Only authenticated users should be able to hit this endpoint. Django REST Framew
 
 If the user is authenticated, all we need to do is call Django's `logout()` method.
 
-    return Response()
+    return Response({ 'success': True })
 
 There isn't anything reasonable to return when logging out, so we just return an empty response with a `200` status code.
 
@@ -52,31 +55,86 @@ The final method you need to add to your `Authentication` service is the `logout
 
 Add the following method to the `Authentication` service in `authentication.service.js`:
 
-    logout: function (username, password) {
+    /**
+     * @name logout
+     * @desc Try to log the user out
+     * @returns {Promise}
+     * @memberOf thinkster.authentication.services.Authentication
+     */
+    function logout() {
       return $http.post('/api/v1/auth/logout/')
-        .then(function (data, status, headers, config) {
-          Authentication.unauthenticate();
-          
-          window.location = '/';
-        }, function (data, status, headers, config) {
-          console.error('Epic failure!');
-        });
-      },
+        .then(logoutSuccessFn, logoutErrorFn);
+
+      /**
+       * @name logoutSuccessFn
+       * @desc Unauthenticate and redirect to index with page reload
+       */
+      function logoutSuccessFn(data, status, headers, config) {
+        Authentication.unauthenticate();
+
+        window.location = '/';
+      }
+
+      /**
+       * @name logoutErrorFn
+       * @desc Log "Epic failure!" to the console
+       */
+      function logoutErrorFn(data, status, headers, config) {
+        console.error('Epic failure!');
+      }
+    }
+
+As always, remember to expose `logout` as part of the `Authentication` service:
+
+    var Authentication = {
+      getAuthenticatedUser: getAuthenticatedUser,
+      isAuthenticated: isAuthenticated,
+      login: login,
+      logout: logout,
+      register: register,
+      setAuthenticatedUser: setAuthenticatedUser,
+      unauthenticate: unauthenticate
+    };
 
 {x: angularjs_authentication_service_logout}
 Add a `logout()` method to your `Authentication` service
 
-## Logout: AngularJS Controller and Template
+## Controlling the navigation bar with NavbarController
 There will not actually be a `LogoutController` or `logout.html`. Instead, the navigation bar already contains a logout link for authenticated users. We will create a `NavbarController` for handling the logout buttons `onclick` functionality and we will update the link itself with an `ng-click` attribute.
 
-Create a file in `static/javascripts/static/controllers/` called `navbar.controller.js` and add the following to it:
+Create a file in `static/javascripts/layout/controllers/` called `navbar.controller.js` and add the following to it:
 
-    angular.module('borg.static.controllers')
-      .controller('NavbarController', function ($scope, Authentication) {
-        $scope.logout = function () {
+    /**
+    * NavbarController
+    * @namespace thinkster.layout.controllers
+    */
+    (function () {
+      'use strict';
+
+      angular
+        .module('thinkster.layout.controllers')
+        .controller('NavbarController', NavbarController);
+
+      NavbarController.$inject = ['$scope', 'Authentication'];
+
+      /**
+      * @namespace NavbarController
+      */
+      function NavbarController($scope, Authentication) {
+        var vm = this;
+
+        vm.logout = logout;
+
+        /**
+        * @name logout
+        * @desc Log the user out
+        * @memberOf thinkster.layout.controllers.NavbarController
+        */
+        function logout() {
           Authentication.logout();
-        };
-      });
+        }
+      }
+    })();
 
 {x: angularjs_navbar_controller}
 Create a `NavbarController` in `static/javascripts/static/controllers/navbar.controller.js`
@@ -85,9 +143,9 @@ Open `templates/navbar.html` and add an `mg-controller` directive with the value
 
     <nav class="navbar navbar-default" role="navigation" ng-controller="NavbarController">
 
-While you have `templates/navbar.html` open, go ahead and find the logout link and add `ng-click="logout()"` to it like so:
+While you have `templates/navbar.html` open, go ahead and find the logout link and add `ng-click="vm.logout()"` to it like so:
 
-    <li><a href="javascript:void(0)" ng-click="logout()">Logout</a></li>
+    <li><a href="javascript:void(0)" ng-click="vm.logout()">Logout</a></li>
 
 {x: angularjs_navbar_template_update}
 Update `navbar.html` to include the `ng-controller` and `ng-click` directives where appropriate
@@ -95,40 +153,39 @@ Update `navbar.html` to include the `ng-controller` and `ng-click` directives wh
 ## Logout: AngularJS Modules
 We need to add a few new modules this time around.
 
-Create a file in `static/javascripts/static/` called `static.module.js` and give it the following contents:
+Create a file in `static/javascripts/layout/` called `layout.module.js` and give it the following contents:
 
-    angular.module('borg.static', [
-      'borg.static.controllers'
-    ]);
+    (function () {
+      'use strict';
 
-    angular.module('borg.static.controllers', []);
+      angular
+        .module('thinkster.layout', [
+          'thinkster.layout.controllers'
+        ]);
 
-And don't forget to update `static/javascripts/borg.js` also:
+      angular
+        .module('thinkster.layout.controllers', []);
+    })();
 
-    angular.module('borg', [
-      // ...
-      'borg.static'
-    ]);
+
+And don't forget to update `static/javascripts/thinkster.js` also:
+
+    angular
+      .module('thinkster', [
+        'thinkster.config',
+        'thinkster.routes',
+        'thinkster.authentication',
+        'thinkster.layout'
+      ]);
 
 {x: angularjs_static_module}
-Define new `borg.static` and `borg.static.controllers` modules
+Define new `thinkster.layout` and `thinkster.layout.controllers` modules
 
 ## Logout: Include new .js files
 This time around there are a couple new JavaScript files to include. Open up `javascripts.html` and add the following:
 
-    <script type="text/javascript" src="{% static 'javascripts/static/static.module.js' %}"></script>
-    <script type="text/javascript" src="{% static 'javascripts/static/controllers/navbar.controller.js' %}"></script>
+    <script type="text/javascript" src="{% static 'javascripts/layout/layout.module.js' %}"></script>
+    <script type="text/javascript" src="{% static 'javascripts/layout/controllers/navbar.controller.js' %}"></script>
 
 {x: include_javascript_static}
 Include new JavaScript files in `javascripts.html`
-
-## Seriously, go away. You need a break. I know I do.
-This has been a long chapter, but we have covered so much ground! Authentication is a very time consuming endeavor, and we haven't even scratched the surface of it. There are many speed optimizations and security concerns to worry about that we haven't identified here.
-
-With that said, you should be incredibly proud of what you've done so far. Most people will never implement an authentication system.
-
-To recap, in this chapter we have touched on registration, login, and logout. You implemented API views, services, and controllers for each feature. The code you've written is both clean and modular and you are now ready to move on to building the rest of your application.
-
-In the next chapter we will begin modeling Thoughts, which are our rendition of typical social network posts/statuses/tweets/whatever. Once we have our models fleshed out, we will move on to serialization and finally move on to creating some more API views. 
-
-A lot of what we cover in the next chapter will be review for you, but repetition is a great way to learn. Because we won't be presenting many new concepts as we go forward, I will leave you with a challenge: From now on, try figuring out what the code will look like before reading the snippets. This turns repetition into active learning and it gives your brain a workout at the same time. Good luck!
