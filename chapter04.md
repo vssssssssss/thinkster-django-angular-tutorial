@@ -1,4 +1,4 @@
-## Logging users in
+# Logging users in
 Now that users can register, they need a way to log in. As it turns out, this is part of what we are missing from our registration system. Once a user registers, we should automatically log them in.
 
 To get started, we will create views for logging in and logging out. Once those are done we will progress in a fashion similar to the registration systems: services, controllers, etc.
