@@ -6,7 +6,7 @@ In this tutorial you will learn how to build a web application with Django and A
 
  1.  [Welcome, Third of Five!](chapter00.md) **FINAL**
  2.  [Extending Django's built-in User model](chapter01.md) **FINAL**
- 3.  [Serializing the User and UserProfile models](chapter02.md)
+ 3.  [Serializing the User and UserProfile models](chapter02.md) **FINAL**
  4.  [Building an authentication system](chapter03.md)
  5.  [Login](chapter04.md)
  6.  [Logout](chapter05.md)

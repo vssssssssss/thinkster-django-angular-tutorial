@@ -1,21 +1,20 @@
 # Serializing the User and UserProfile Models
 Our application will make AJAX requests to the server to get the data we intend to display. Before we can send that data back to the client, we need to format it in a way that the client can understand; in this case, we choose JSON. The process of transforming Django models to JSON is called serialization and that is what we will talk about now.
 
-## Serializing User models with Django REST Framework
-Django models are great for -- you guessed it -- modeling data in Python. What they are not well suited for is displaying information on the client. To send data from our server to the client, we need to serialize the models into a format that our client understands. The popular format these days in JSON, so that is what we will use.
+We need to write two serializers: one for the `User` model and one for the `UserProfile` model.  We will call these `UserSerializer` and `UserProfileSerializer`, respectively.
 
-Luckily, the boilerplate project you started from has already installed a project called Django REST Framework. Django REST Framework makes it easy to serialize Django models into JSON, among other things, and we will use it extensively throughout this tutorial.
+## Django REST Framework
+As part of the boilerplate project you cloned earlier, we have included a project called Django REST Framework. Django REST Framework is a toolkit that provides a number of features common to most web applications, including serializers. We will make use of these features throughout the tutorial to save us both time and frustration. Our first look at Django REST Framework starts here.
 
-We need to write two serializers: `UserSerializer` and `UserProfileSerializer`. We won't be directly modifying `User` objects, but the `ModelSerializer` class in Django handles both serialization and deserialization. When we create and destroy `User`s, we will need to deserialize them.
-
-Before we write our serializers, let's create a `serializers.py` file inside our `authentication` app. Run the following command from the root of your project:
+## UserSerializer
+Before we write our serializers, let's create a `serializers.py` file inside our `authentication` app:
 
     $ touch authentication/serializers.py
 
 {x: create_serializers_module}
 Create a `serializers.py` file inside the `authentication` app
 
-Open `authentication/serializers.py` and add the following snippet:
+Open `authentication/serializers.py` and add the following code and imports:
 
     from django.contrib.auth.models import User
 
@@ -41,17 +40,21 @@ Open `authentication/serializers.py` and add the following snippet:
             return user
 
 {x: create_user_serializer}
-Create a `UserSerializer` class in `authentication/serializers.py`
+Make a serializer called `UserSerializer` in `authentication/serializers.py`
+
+*NOTE: From here on, we will declare imports that are used in each snippet. These may already be present in the file. If so, they do not need to be added a second time.*
+
+*NOTE: All imports should be at the top of the file.*
 
 Let's take a closer look.
 
     class Meta:
 
-The `Meta` sub-class defines information the serializer needs to do it's job. We have defined a few common attributes of the `Meta` sub-class here.
+The `Meta` sub-class defines metadata the serializer requires to operate. We have defined a few common attributes of the `Meta` class here.
 
     model = User
 
-The serializer needs to know what model it will be serializing. Specifying the model creates a guarantee that only attributes of that model or explicitly created fields can be serialized. We will cover serializing model attributes now and explicitly created fields shortly.
+Because this serializers inherits from `serializers.ModelSerializer`, it should make sense that we must tell it which model to serialize. Specifying the model creates a guarantee that only attributes of that model or explicitly created fields can be serialized. We will cover serializing model attributes now and explicitly created fields shortly.
 
     fields = (
         'id', 'username', 'email', 'first_name', 'last_name', 'password'
@@ -61,7 +64,7 @@ The `fields` attribute of the `Meta` class is where we specify which attributes 
 
     write_only_fields = ('password',)
 
-Notice that we are telling our serializer to include the `password` attribute. This seems like a bad idea, don't you think? Django does not store passwords in plain text, but even the hashed and salted version of a user's password is not something the client should have access to.
+Notice that we are telling our serializer to serialize the `password` attribute. This seems like a bad idea, don't you think? Django does not store passwords in plain text, but even the hashed and salted version of a user's password is not something the client should have access to.
 
 We solve this problem by telling the serializer that the `password` attribute should only be writable. In other words, the serializer should only recognize `password` if we are updating a `User`.
 
@@ -73,30 +76,31 @@ Earlier we mentioned that we sometimes want to turn JSON into a Python object. T
 
 Most of the boilerplate code for updating any object is handled by the default implementation of `self.restore_object()`. To save time, we delegate that work to the parent of `UserSerializer`. 
 
-    if hasattr(attrs, 'password'):
-                user.set_password(attrs.get('password'))
+    password = attrs.get('password', None)
+
+    if password:
+                user.set_password(password)
 
 Overwriting `self.restore_object()` is not required unless there is extra work that needs to be done. In the case of a `User`, we need to use the `User.set_password()` method to make sure the user's new password is set in a secure way.
 
-If we didn't want to support updating your password, we could leave out `self.restore_object()` completely.
+If we didn't want to support updating passwords, we could leave out `self.restore_object()` completely.
 
-Moving on!
+## UserProfileSerializer
+We just created a serializer for the `User` model. Now we need one for the `UserProfile` model. The serializers will be similar in nature, but `UserProfileSerializer` will present a few new concepts around handling model relationships (one-to-one) with serializers.
 
-## Serializing UserProfile objects
-We just created a serializer for the `User` model. Now we need one for the `UserProfile` model. The serializers will be similar in nature, but `UserProfileSerializer` will present a few new concepts around handling model relationships (One-to-One) with serializers.
+We need to add the following code to `authentication/serializers.py`:
 
-We need to add import to `authentication/serializers.py`:
+    from rest_framework import serializers
 
     from authentication.models import UserProfile
 
-With `UserProfile` imported, add the following class to `authentication/serializers.py`:
 
     class UserProfileSerializer(serializers.ModelSerializer):
         id = serializers.IntegerField(source='pk', read_only=True)
         username = serializers.CharField(source='user.username', read_only=True)
-        email = serializers.CharField(source='user.email')
-        first_name = serializers.CharField(source='user.first_name')
-        last_name = serializers.CharField(source='user.last_name')
+        email = serializers.CharField(source='user.email', required=False)
+        first_name = serializers.CharField(source='user.first_name', required=False)
+        last_name = serializers.CharField(source='user.last_name', required=False)
 
         class Meta:
             model = UserProfile
@@ -123,7 +127,7 @@ With `UserProfile` imported, add the following class to `authentication/serializ
             return profile
 
 {x: create_user_profile_serializer}
-Create `UserProfileSerializer` in `authentication/serializers.py`
+Make a serializer called `UserProfileSerializer` in `authentication/serializers.py`
 
 For the sake of brevity, we will skip a lot of the code and talk instead about the new ideas this serializer presents.
 
@@ -134,11 +138,11 @@ The first thing you may notice is that we define a number of fields at the top o
 As mentioned in an earlier note, `UserProfile` does not have an `id` attribute because we made the associated `User` the primary key. Because it is standard to include an `id` key in our JSON, we explicitly creating an `id` field whose source is `UserProfile.pk`. In this case, `UserProfile.pk` is the `id` of the associated `User`.
 
     username = serializers.CharField(source='user.username', read_only=True)
-    email = serializers.CharField(source='user.email')
-    first_name = serializers.CharField(source='user.first_name')
-    last_name = serializers.CharField(source='user.last_name')
+    email = serializers.CharField(source='user.email', required=False)
+    first_name = serializers.CharField(source='user.first_name', required=False)
+    last_name = serializers.CharField(source='user.last_name', required=False)
 
-We also want to include some information about the `User` object. The way to do this with Django REST Framework is to specify example what fields of the related model you want to include. Here we have chosen `username`, `email`, `first_name` and `last_name`.
+When we serializer a `UserProfile` object, we want to include information about the related `User`. After all, the whole point of `UserProfile` is to *extend* `User`. Django REST Framework allows us to do this by specifying which fields of the related model we want to include. Here we have chosen `username`, `email`, `first_name` and `last_name`.
 
 These are the explicitly defined fields I mentioned earlier. Each field accepts a `source` attribute whose value is `<related model>.<related model attribute>`. For example, if we want to include the `username` of the associated `User`, we set the source to `user.username`.
 
@@ -154,22 +158,4 @@ Later on, we will add support for updating a user's email, first name, and last 
 
     user.save()
 
-When updated a related model, you must also explicitly save it.
-
-## Onwards to bigger and better things .. and some AngularJS!
-You're my hero! Look how much you've already accomplished! In a short time, you've gotten a working Django project running, you extended the built-in `User` model to store more information about each user, and you have created serializers for both `User` and `UserProfile` so we can communicate them to our client.
-
-Are you sufficiently exhausted yet? Good! Take a break.
-
-When you come back from your break, move on to the next chapter where we build over the views for our authentication system and jump into some AngularJS to build login and registration forms.
-
-## Chapter notes
-*<sup>1</sup> This may seem annoying, but the design decisions behind this are solid. It's A Good Thing&#0153;.*
-
-*<sup>2</sup> For a full, in-depth discussion on your choices for customizing the functionality of a `User`, see [Customizing authentication in Django](https://docs.djangoproject.com/en/1.7/topics/auth/customizing/).*
-
-*<sup>3</sup> Django apps are not to be confused with Django projects. An app is simply a module of a larger project. For more information, see [Projects and Applications](https://docs.djangoproject.com/en/1.7/ref/applications/#projects-and-applications).*
-
-*<sup>4</sup> Because we are using the associated `User` as the primary key, it is important to note that `UserProfile` objects **do not** have an `id` attribute. Instead, use `pk` in place of `id`. This is considered a best practice for Django in general, but it is especially important in this case.*
-
-*<sup>5</sup> The default value of `maximum_length` is `None`. This can cause a problem when your project must be portable to multiple databases. For more information, see the [CharField](https://docs.djangoproject.com/en/dev/ref/models/fields/#charfield) docs.*
+When updating a related model, you must also explicitly save it.
