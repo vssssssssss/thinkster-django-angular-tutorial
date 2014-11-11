@@ -1,332 +1,175 @@
-## Building an authentication system
-In the last chapter, we create a `UserProfile` model so we can store some extra information about our users. 
+# Serializing the User and UserProfile Models
+Our application will make AJAX requests to the server to get the data we intend to display. Before we can send that data back to the client, we need to format it in a way that the client can understand; in this case, we choose JSON. The process of transforming Django models to JSON is called serialization and that is what we will talk about now.
 
-Now we will build an authentication system that let's users register, log in, and log out. We will cover write API views with Django REST Framework, creating an `Authentication` service with AngularJS and finally the templates and controllers that will display various forms to the client.
+## Serializing User models with Django REST Framework
+Django models are great for -- you guessed it -- modeling data in Python. What they are not well suited for is displaying information on the client. To send data from our server to the client, we need to serialize the models into a format that our client understands. The popular format these days in JSON, so that is what we will use.
 
-## Registration
-Because we can't log in users that don't exist, it makes sense to start with registration. 
+Luckily, the boilerplate project you started from has already installed a project called Django REST Framework. Django REST Framework makes it easy to serialize Django models into JSON, among other things, and we will use it extensively throughout this tutorial.
 
-To register a user, we need an API endpoint that will create the user, an AngularJS service to make an AJAX request to the API and a registration form. Let's make the API endpoint first.
+We need to write two serializers: `UserSerializer` and `UserProfileSerializer`. We won't be directly modifying `User` objects, but the `ModelSerializer` class in Django handles both serialization and deserialization. When we create and destroy `User`s, we will need to deserialize them.
 
-## Registration API Views and URLs
-Open `authentication/views.py` and replace it's contents with the following code:
+Before we write our serializers, let's create a `serializers.py` file inside our `authentication` app. Run the following command from the root of your project:
+
+    $ touch authentication/serializers.py
+
+{x: create_serializers_module}
+Create a `serializers.py` file inside the `authentication` app
+
+Open `authentication/serializers.py` and add the following snippet:
 
     from django.contrib.auth.models import User
-    from rest_frameworks import generics
-    from authentication.serializers import UserSerializer
+
+    from rest_framework import serializers
 
 
-    class UserCreateView(generics.CreateAPIView):
-        queryset = User.objects.all()
-        serializer_class = UserSerializer
+    class UserSerializer(serializers.ModelSerializer):
+        class Meta:
+            model = User
+            fields = (
+                'id', 'username', 'email', 'first_name', 'last_name', 'password'
+            )
+            write_only_fields = ('password',)
 
-{x: user_create_view}
-Create a `UserCreateView` in `authentication/views.py`
+        def restore_object(self, attrs, instance=None):
+            user = super(UserSerializer, self).restore_object(attrs, instance)
 
-As before, we will step through this -- admittedly short -- code snippet.
+            password = attrs.get('password', None)
 
-    class UserCreateView(generics.CreateAPIView):
+            if password:
+                user.set_password(password)
 
-Django REST Framework provides a number of generic API views that save you a lot of time. In this case, we are using `generics.CreateAPIView` which accepts a `POST` request and creates an object.
+            return user
 
-    queryset = User.objects.all()
-    serializer_class = UserSerializer
+{x: create_user_serializer}
+Create a `UserSerializer` class in `authentication/serializers.py`
 
-Here we define the query set and serializer that the view operates on. This is pretty standard for just about any generic view that comes with Django REST Framework. Not much can be explained about this without diving into the Django REST Framework source code (which I suggest you try!).
+Let's take a closer look.
 
-Now that we have created the view, we need to add it to the URLs file. Open `thinkster_django_angular_boilerplate/urls.py` and update it to look like so:
+    class Meta:
 
-    # .. Imports
-    from authentication.views import UserCreateView
+The `Meta` sub-class defines information the serializer needs to do it's job. We have defined a few common attributes of the `Meta` sub-class here.
 
-    urlpatterns = patterns(
-         '',
-        # ... URLs
-        url('^api/v1/users/$', UserCreateView.as_view(), name='user-create'),
+    model = User
 
-        url(r'^', TemplateView.as_view(template_name='static/index.html')),
+The serializer needs to know what model it will be serializing. Specifying the model creates a guarantee that only attributes of that model or explicitly created fields can be serialized. We will cover serializing model attributes now and explicitly created fields shortly.
+
+    fields = (
+        'id', 'username', 'email', 'first_name', 'last_name', 'password'
     )
 
-{x: url_user_create}
-Add an API endpoint for `UserCreateView`
+The `fields` attribute of the `Meta` class is where we specify which attributes of the `User` model should be serialized. We must be careful when specifying which fields to serialize because some fields, like `is_superuser`, should not be available to the client for security reasons.
 
-*NOTE: It is very important that the last URL in the above snippet always be the last URL. This is known as a passthrough route. It accepts all requests not matched by any other rules and sends them to the front end for AngularJS to process. The order of other URLs is insignificant.*
+    write_only_fields = ('password',)
 
-## Authentication Service
-With the API endpoint in place, we can create an AngularJS service that will handle communication between the client and the server.
+Notice that we are telling our serializer to include the `password` attribute. This seems like a bad idea, don't you think? Django does not store passwords in plain text, but even the hashed and salted version of a user's password is not something the client should have access to.
 
-Make a file in `static/javascripts/authentication/services/` called `authentication.service.js` and add the following code:
+We solve this problem by telling the serializer that the `password` attribute should only be writable. In other words, the serializer should only recognize `password` if we are updating a `User`.
 
-    angular.module('borg.authentication.services')
-      .service('Authentication', function ($http) {
-        var Authentication = {
-          register: function (username, password, email) {
-            return $http.post('/api/v1/users/', {
-              username: username,
-              password: password,
-              email: email
-            });
-          }
-        };
+    def restore_object(self, attrs, instance=None):
 
-        return Authentication;
-      });
+Earlier we mentioned that we sometimes want to turn JSON into a Python object. This is called deserialization and it is handled by the `self.restore_object()` method.
 
-{x: angularjs_authentication_service}
-Create an `Authentication` service with AngularJS
+    user = super(UserSerializer, self).restore_object(attrs, instance)
 
-Let's step through this line-by-line:
+Most of the boilerplate code for updating any object is handled by the default implementation of `self.restore_object()`. To save time, we delegate that work to the parent of `UserSerializer`. 
 
-       angular.module('borg.authentication.services')
+    if hasattr(attrs, 'password'):
+                user.set_password(attrs.get('password'))
 
-AngularJS supports the use of modules. Modularization is a great feature because it promotes encapsulation and loose coupling. We make thorough use of Angular's module system throughout the tutorial. For now, all you need to know is that this service is in the `borg.authentication.services` module.
+Overwriting `self.restore_object()` is not required unless there is extra work that needs to be done. In the case of a `User`, we need to use the `User.set_password()` method to make sure the user's new password is set in a secure way.
 
-    .service('Authentication', function ($http) {
+If we didn't want to support updating your password, we could leave out `self.restore_object()` completely.
 
-This line defines a service object named `Authentication` on the module from the previous line. We inject the `$http` service as a dependency.
+Moving on!
 
-    var Authentication = {
+## Serializing UserProfile objects
+We just created a serializer for the `User` model. Now we need one for the `UserProfile` model. The serializers will be similar in nature, but `UserProfileSerializer` will present a few new concepts around handling model relationships (One-to-One) with serializers.
 
-This is personal preference, but I find it's more readable to define your service as a named object and then return it at the end of the file. Returning an anonymous object is another option.
+We need to add import to `authentication/serializers.py`:
 
-    register: function (username, password, email) {
+    from authentication.models import UserProfile
 
-At this point, the `Authentication` service has only one method: `register`, which takes a `username`, `password`, and `email`. We will add more methods to the service as we move forward.
- 
-    return $http.post('/api/v1/users/', {
-      username: username,
-      password: password,
-      email: email
-    });
+With `UserProfile` imported, add the following class to `authentication/serializers.py`:
 
-As mentioned before, we need to make an AJAX request to the API endpoint we made. As data, we include the `username`, `password` and `email` parameters this method received. We have no reason to do anything special with the response, so we will let the caller of `Authentication.register` handle the callback.
+    class UserProfileSerializer(serializers.ModelSerializer):
+        id = serializers.IntegerField(source='pk', read_only=True)
+        username = serializers.CharField(source='user.username', read_only=True)
+        email = serializers.CharField(source='user.email')
+        first_name = serializers.CharField(source='user.first_name')
+        last_name = serializers.CharField(source='user.last_name')
 
-## Registration Controller and Template
-We just finished the first iteration of our first service. Now we need something that can call `Authentication.register`. This is where controllers come in. In this section we will create our first AngularJS controller and a template that will being viewable in the client.
+        class Meta:
+            model = UserProfile
+            fields = (
+                'id', 'username', 'email', 'first_name', 'last_name', 'tagline',
+                'created_at', 'updated_at',
+            )
+            read_only_fields = ('created_at', 'updated_at',)
 
-Create a file in `static/javascripts/authentication/controllers/` called `register.controller.js` and add the following:
+        def restore_object(self, attrs, instance=None):
+            profile = super(UserProfileSerializer, self).restore_object(
+                attrs, instance
+            )
 
-    angular.module('borg.authentication.controllers')
-      .controller('RegisterController', function ($scope, Authentication) {
-        $scope.register = function () {
-          Authentication.register($scope.username, $scope.password, $scope.email).then(
-            function (data, status, headers, config) {
-              console.log('Success!');
-            },
-            function (data, status, headers, config) {
-              console.error('Epic failure!');
-            }
-          );
-        };
-      });
+            if profile:
+                user = profile.user
 
-{x: angularjs_register_controller}
-Create a `RegisterController` controller with AngularJS
+                user.email = attrs.get('user.email', user.email)
+                user.first_name = attrs.get('user.first_name', user.first_name)
+                user.last_name = attrs.get('user.last_name', user.last_name)
 
-As usual, we will skip over the familiar and talk about new concepts.
+                user.save()
 
-    .controller('RegisterController', function ($scope, Authentication) {
+            return profile
 
-This is similar to the way we defined our service. The difference is that this time we are defining a controller object.
+{x: create_user_profile_serializer}
+Create `UserProfileSerializer` in `authentication/serializers.py`
 
-    $scope.register = function () {
+For the sake of brevity, we will skip a lot of the code and talk instead about the new ideas this serializer presents.
 
-`$scope` allows the template we will create shortly to access our variables. Here, we are saying the `register` function on `$scope` because we want to call `register()` when our user submits the registration form.
+The first thing you may notice is that we define a number of fields at the top of the class. There are two reasons for this. 
 
-    Authentication.register($scope.username, $scope.password, $scope.email).then(
+    id = serializers.IntegerField(source='pk', read_only=True)
 
-Here we call the service we created a few minutes ago. We pass in a username, password and email from `$scope`, which we will cover shortly. We then call the `.then()` method because `Authentication.register()` returns a promise.
+As mentioned in an earlier note, `UserProfile` does not have an `id` attribute because we made the associated `User` the primary key. Because it is standard to include an `id` key in our JSON, we explicitly creating an `id` field whose source is `UserProfile.pk`. In this case, `UserProfile.pk` is the `id` of the associated `User`.
 
-    function (data, status, headers, config) {
-      console.log('Success!');
-    },
-    function (data, status, headers, config) {
-      console.error('Epic failure!');
-    }
+    username = serializers.CharField(source='user.username', read_only=True)
+    email = serializers.CharField(source='user.email')
+    first_name = serializers.CharField(source='user.first_name')
+    last_name = serializers.CharField(source='user.last_name')
 
-These are the success and error callbacks for `.then()`. We will fill them in later after we add some more methods to our `Authentication` service.
+We also want to include some information about the `User` object. The way to do this with Django REST Framework is to specify example what fields of the related model you want to include. Here we have chosen `username`, `email`, `first_name` and `last_name`.
 
-For now, let's focus on the registration template.
+These are the explicitly defined fields I mentioned earlier. Each field accepts a `source` attribute whose value is `<related model>.<related model attribute>`. For example, if we want to include the `username` of the associated `User`, we set the source to `user.username`.
 
-Create a file in `static/templates/authentication/` called `register.html` and add the following:
+    read_only_fields = ('created_at', 'updated_at',)
 
-    <div class="row">
-      <div class="col-md-4 col-md-offset-4">
-        <h1>Register</h1>
+Conversely to `write_only_fields` mentioned before, sometimes we have fields that should be read-only. In this case, both `created_at` and `updated_at` will update themselves, so we make them non-writable.
 
-        <div class="well">
-          <form role="form" ng-submit="register()">
-            <div class="form-group">
-              <label for="register__username">Username</label>
-              <input type="text" class="form-control" id="register__username" ng-model="username" placeholder="ex. hugh" />
-            </div>
+    user.email = attrs.get('user.email', user.email)
+    user.first_name = attrs.get('user.first_name', user.first_name)
+    user.last_name = attrs.get('user.last_name', user.last_name)
 
-            <div class="form-group">
-              <label for="register__email">Email</label>
-              <input type="email" class="form-control" id="register__email" ng-model="email" placeholder="ex. hugh@borgcollective.org" />
-            </div>
+Later on, we will add support for updating a user's email, first name, and last name. When updating a related model, each attribute must be explicitly set.
 
-            <div class="form-group">
-              <label for="register__password">Password</label>
-              <input type="password" class="form-control" id="register__password" ng-model="password" placeholder="ex. weareborg" />
-            </div>
+    user.save()
 
-            <div class="form-group">
-              <button type="submit" class="btn btn-primary">Submit</button>
-            </div>
-          </form>
-        </div>
-      </div>
-    </div>
+When updated a related model, you must also explicitly save it.
 
-{x: angularjs_register_template}
-Create a `register.html` template
+## Onwards to bigger and better things .. and some AngularJS!
+You're my hero! Look how much you've already accomplished! In a short time, you've gotten a working Django project running, you extended the built-in `User` model to store more information about each user, and you have created serializers for both `User` and `UserProfile` so we can communicate them to our client.
 
-We won't go into much detail this time because this is pretty basic HTML. A lot of the classes come from Bootstrap, which is included by the boilerplate project. There are only two lines that we are going to pay attention to:
+Are you sufficiently exhausted yet? Good! Take a break.
 
-    <form role="form" ng-submit="register()">
+When you come back from your break, move on to the next chapter where we build over the views for our authentication system and jump into some AngularJS to build login and registration forms.
 
-This is the line responsible for calling `$scope.register`, which we set up in our controller. `ng-submit` is what's known as a directive in AngularJS. We will touch on directives later when we create our own, but for now all you need to know is that `ng-submit` will call `$scope.register` when the form is submitted.
+## Chapter notes
+*<sup>1</sup> This may seem annoying, but the design decisions behind this are solid. It's A Good Thing&#0153;.*
 
-    <input type="text" class="form-control" id="register__username" ng-model="username" placeholder="ex. hugh" />
+*<sup>2</sup> For a full, in-depth discussion on your choices for customizing the functionality of a `User`, see [Customizing authentication in Django](https://docs.djangoproject.com/en/1.7/topics/auth/customizing/).*
 
-On each `<input />`, you will see another directive, `ng-model`. `ng-model` is responsible for storing the value of the input on `$scope`. `ng-mdodel="username"` means AngularJS should store the value of this input at `$scope.username`. This is how we get the username, password, and email when `$scope.register` is called.
+*<sup>3</sup> Django apps are not to be confused with Django projects. An app is simply a module of a larger project. For more information, see [Projects and Applications](https://docs.djangoproject.com/en/1.7/ref/applications/#projects-and-applications).*
 
-## Registration Routes and Modules
-Let's set up some client-side routing so users of the app navigate to the register form.
+*<sup>4</sup> Because we are using the associated `User` as the primary key, it is important to note that `UserProfile` objects **do not** have an `id` attribute. Instead, use `pk` in place of `id`. This is considered a best practice for Django in general, but it is especially important in this case.*
 
-Create a file in `static/javascripts` called `borg.routes.js` and add the following:
-
-    angular.module('borg.routes')
-      .config(function ($routeProvider) {
-        $routeProvider.when('/register', {
-          controller: 'RegisterController',
-          templateUrl: '/static/templates/authentication/register.html'
-        }).otherwise('/');
-      });
-
-{x: angularjs_register_route}
-Define a route for the registration form
-
-There are a few points we should touch on here.
-
-    .config(function ($routeProvider) {
-
-Angular, like just about any framework you can imagine, allows you to set different configurations. You do this with a `.config` block. Here, we are injecting `$routeProvider` as a dependency, which will let us add routing to the client.
-
-    $routeProvider.when('/register', {
-
-`$routeProvider.when` takes two arguments: a path and an options object. Here we use `/register` as the path because thats where we want the registration form to show up.
-
-    controller: 'RegisterController',
-
-One key you can include in the options object is `controller`. This will map a certain controller to this route. Here we use the `RegisterController` controller we made earlier.
-
-    templateUrl: '/static/templates/authentication/register.html'
-
-The other key we will use is `templateUrl`. `templateUrl` takes a string of the URL where the template we want to use for this route can be found.
-
-    }).otherwise('/');
-
-We will add more routes as we move forward, but it's possible a user will enter a URL that we don't support. When this happens, `$routeProvider.otherwise` will redirect the user to the path specified; in this case, '/'.
-
-With all this done, we can go back to our discussion on modules.
-
-In Angular, you must define modules prior to using them. So far we need to define `borg.authentication.services`, `borg.authentication.controllers`, and `borg.routes`. Because `borg.authentication.services` and `borg.authentication.controllers` are submodules of `borg.authentication`, we need to create a `borg.authentication` module as well.
-
-Create a file in `static/javascripts/authentication/` called `authentication.module.js` and add the following:
-
-    angular.module('borg.authentication', [
-      'borg.authentication.controllers',
-      'borg.authentication.services'
-    ]);
-
-    angular.module('borg.authentication.controllers', []);
-    angular.module('borg.authentication.services', []);
-
-{x: angularjs_authentication_module}
-Define the `borg.authentication` module and it's dependencies
-
-There are a couple of interesting syntaxes to note here.
-
-    angular.module('borg.authentication', [
-      'borg.authentication.controllers',
-      'borg.authentication.services'
-    ]);
-
-This syntax defines the module `borg.authentication` with `borg.authentication.controllers` and `borg.authentication.services` as dependencies.
-
-     angular.module('borg.authentication.controllers', []);
-
-This syntax defines the module `borg.authentication.controllers` with no dependencies.
-
-Now we need define to include `borg.authentication` and `borg.routes` as dependencies of `borg`.
-
-Open `static/javascripts/borg.js`, define the required modules, and include them as dependencies of the `borg` module. Note that `borg.routes` relies on `ngRoute`, which is included with the boilerplate project.
-
-    angular.module('borg', [
-        'borg.routes',
-        'borg.authentication'
-    ]);
-
-    angular.module('borg.routes', ['ngRoute']);
-
-{x: angularjs_borg_module}
-Update the `borg` module to include it's new dependencies
-
-## Hash routing
-By default, Angular using a feature called hash routing. If you've ever seen a URL that looks like `www.google.com/#/search` then you know what I'm talking about. Again, this is personal preference, but I think those are incredibly ugly. To get rid of hash routing, we can enabled `$locationProvider.html5Mode`. In older browsers that do not support HTML5 routing, Angular will intelligently fall back to hash routing.
-
-Create a file in `static/javascripts/` called `borg.config.js` and give it the following content:
-
-    angular.module('borg.config')
-      .config(function ($locationProvider) {
-        $locationProvider.html5Mode(true);
-        $locationProvider.hashPrefix('!');
-      });
-
-{x: angularjs_html5mode_config}
-Enable HTML5 routing for AngularJS
-
-As mentioned, enabling `$locationProvider.html5Mode` gets rid of the hash sign in the URL. The other setting here, `$locationProvider.hashPrefix` turns the `#` into a `#!`. This is mostly for the benefit of search engines.
-
-Because we are using a new module here, we need to open up `static/javascripts/borg.js`, define the module, and include is as a dependency for the `borg` module.
-
-    angular.module('borg', [
-      'borg.config',
-      // ...
-    ]);
-
-    angular.module('borg.config', []);
-    // ...
-
-{x: angularjs_config_module}
-Define the `borg.config` module
-
-## Include new .js files
-In this chapter so far, we have already created a number of new JavaScript files. We need to include these in the client by adding them to `templates/javascripts.html` inside the `{% compress js %}` block (more on django-compressor later).
-
-Open `templates/javascripts.html` and add the following above the `{% endcompress %}` tag:
-
-    <script type="text/javascript" src="{% static 'javascripts/borg.config.js' %}"></script>
-    <script type="text/javascript" src="{% static 'javascripts/borg.routes.js' %}"></script>
-    <script type="text/javascript" src="{% static 'javascripts/authentication/authentication.module.js' %}"></script>
-    <script type="text/javascript" src="{% static 'javascripts/authentication/services/authentication.service.js' %}"></script>
-    <script type="text/javascript" src="{% static 'javascripts/authentication/controllers/register.controller.js' %}"></script>
-
-{x: django_javascripts}
-Add the new JavaScript files to `templates/javascripts.html`
-
-## Let's register a user!
-At this point we have enough to register a new account. Yay! 
-
-Keeping in mind that we still need to implement the success and error callbacks of `Authentication.register`, let's go ahead and register a user.
-
-Run `python manage.py runserver` from the root directory of your project. Navigate to `http://localhost:8000/` and click on the **Register** button in the top-right corner. Before you submit the form, make sure your browser console is open. Fill in each field and submit the form. If all went well, you should see *Success!* show up in your browser console.
-
-Congratulations! You're well on your way to having a fully working web application built with Django and AngularJS. But we aren't out of the woods just yet! Let's keep on truckin'.
-
-{x: high_five_1}
-Give yourself a high five. Seriously. Do it now.
-
-
+*<sup>5</sup> The default value of `maximum_length` is `None`. This can cause a problem when your project must be portable to multiple databases. For more information, see the [CharField](https://docs.djangoproject.com/en/dev/ref/models/fields/#charfield) docs.*

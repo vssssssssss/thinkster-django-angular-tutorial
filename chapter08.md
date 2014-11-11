@@ -1,197 +1,105 @@
-# User profiles
-The only thing left to do at this point is make a profile page for your users. We will cover that now.
+# Creating new posts
+Cool. We can retrieve posts from the server and display them on the client, but what about creating them? We already have the endpoint and service taken care of, so let's finish things off by adding an interface to the client.
 
-We need a few things to accomplish this. 
+The first thing we need to do is add a button that the user will click to access the form. When the button is clicked, a modal will pop up prompting the user to enter the text for their new post with a button to submit the form.
 
-All of the models and serializers we will use already exist, so we are good on that front. However, there are two new views that we will need to make: one for retrieving and updating user profiles and one for deleting users. 
+## New Thought Button
+To get started, open `static/templates/thoughts/new-thought.html` and add the following to the bottom of the file:
 
-Other things we will need to create include a service for retrieving user profiles and a couple of controllers with their associated templates.
+    <a class="btn btn-primary btn-fab btn-raised mdi-content-add btn-new-thought"
+       href="javascript:void(0)"
+       ng-show="isAuthenticated"
+       ng-dialog="/static/templates/thoughts/new-thought.html"
+       ng-dialog-controller="NewThoughtController"></a>
 
-This is the final stretch. Let's jump in!
+Earlier we talked about how the `ngDialog` directive would be used for creating new posts. `ngDialog` was included as part of the boilerplate and we won't go into detail on it's full API.
 
-## User profile view
-The first thing we will work on is a view for retrieving and updating a user's profile. 
+All you need to know is that, at minimum, we want to tell `ngDialog` which template and controller to use and that is what we do here.
 
-Open up `authentication/views.py` and add the following view and imports:
+Also note that we make use of `ng-show` to hide this button from non-authenticated users.
 
-    from authentication.models import UserProfile
-    from authentication.permissions import IsAuthenticatedAndOwnsProfile
-    from authentication.serializers import UserProfileSerializer
+Now let's create the controller and template for this modal.
 
-    class UserProfileRetrieveUpdateView(generics.RetrieveUpdateAPIView):
-        lookup_field = 'user__username'
-        queryset = UserProfile.objects.all()
-        serializer_class = UserProfileSerializer
+## New Thought Controller
+Create `static/javascripts/thoughts/controller/new-thought.controller.js` with the following content:
 
-        def get_permissions(self):
-            if self.request.method in permissions.SAFE_METHODS:
-                return (permissions.AllowAny(),)
-            return (IsAuthenticatedAndOwnsProfile(),)
+    angular.module('borg.thoughts.controllers')
+      .controller('NewThoughtController', function ($rootScope, $scope, Authentication, Snackbar, Thoughts) {
+        $scope.submit = function () {
+          $rootScope.$broadcast('thought.created', {
+            content: $scope.content,
+            author: {
+              username: Authentication.getAuthenticatedUser().username
+            }
+          });
 
-Most of this will be familiar. Here are a few things to consider:
+          $scope.closeThisDialog();
 
-    lookup_field = 'user__username'
-
-Normally we look up objects by their primary key. However, doing so results in URLs like `/api/v1/users/1`. URLs are much more readable if we use the user's username: `/api/v1/users/james`. To do these, we set the lookup field to `user__username`.
-
-Note the double underscores in the lookup field. In Django this means "grab the associated user object and return it's username attribute."
-
-    return (IsAuthenticatedAndOwnsProfile(),)
-
-This is a custom permission similar to the one we wrote earlier. We will make this one in just a moment.
-
-If the request method is not one of `permissions.SAFE_METHODS`, then the user must be trying to update their profile. In this case, we want to make sure they are authenticated and that this is their profile. 
-
-## IsAuthenticatedAndOwnsProfile permission
-Create `authentication/permissions.py` with the following content:
-
-    from rest_framework import permissions
-
-
-    class IsAuthenticatedAndOwnsProfile(permissions.BasePermission):
-        def has_object_permission(self, request, view, obj):
-            if not request.user and request.user.is_authenticated():
-                return False
-            return obj == request.user.profile
-
-This permission is fairly straight forward. If the user is not authenticated, then there is no reason to check if they are trying to update a profile that is not theirs. They shouldn't be updating anything at all.
-
-If the user is authenticated then we make sure this is their profile.
-
-## User delete view
-We also need a view for deleting users, in case someone wants to delete their account.
-
-Open `authentication/views.py` and add the following view:
-
-    class UserDestroyView(generics.DestroyAPIView):
-        queryset = User.objects.all()
-        serializer_class = UserSerializer
-
-Since this is a simple view we will let Django REST Framework handle it for us.
-
-## API endpoints
-Now you need to add your two new views to your API.
-
-Open up `thinkster_django_angular_boilerplate/urls.py` and add these new routes and imports:
-
-    from authentication.views import UserDestroyView, UserProfileRetrieveUpdateView
-
-    urlpatterns = patterns(
-        # ...
-        url(r'^api/v1/users/(?P<pk>[0-9]+)/$',
-            UserDestroyView.as_view(), name='user-destroy'),
-        url(r'^api/v1/users/(?P<user__username>[a-zA-Z0-9_@+-]+)$',
-            UserProfileRetrieveUpdateView.as_view(), name='profile'),
-    )
-
-## Profiles module
-We will be creating a service and a couple of controllers relating to user profiles, so let's go ahead and define the modules we will need.
-
-Create `static/javascripts/profiles/profiles.module.js` with the following content:
-
-    angular.module('borg.profiles', [
-      'borg.profiles.controllers',
-      'borg.profiles.services'
-    ]);
-
-    angular.module('borg.profiles.controllers', []);
-    angular.module('borg.profiles.services', []);
-
-Include this file in `javascripts.html`:
-
-    <script type="text/javascript" src="{% static 'javascripts/profiles/profiles.module.js' %}"></script>
-
-## Profile service
-With the module definitions in place, we are ready to create the `Profile` service that will communicate with our API.
-
-Create `static/javascripts/profiles/services/profile.service.js` with the following contents:
-
-    angular.module('borg.profiles.services')
-      .service('Profile', function ($http) {
-        var Profile = {
-          destroy: function (profile) {
-            return $http.delete('/api/v1/users/' + profile.id + '/');
-          },
-
-          get: function (username) {
-            return $http.get('/api/v1/accounts/' + username + '/');
-          },
-
-          update: function (profile) {
-            return $http.put('/api/v1/accounts/' + profile.username + '/', profile);
-          }
+          Thoughts.create($scope.content).then(
+            function (data, status, headers, config) {
+              Snackbar.show('Success! Your thought has been uploaded to the Collective.');
+            },
+            function (data, status, headers, config) {
+              $rootScope.$broadcast('thought.created.error');
+              Snackbar.error(data.error);
+            }
+          );
         };
-
-        return Profile;
       });
 
-We aren't doing anything special here. Each of these API calls is a basic CRUD operation, so we get away with not having much code.
+There are a few things going on here that we should talk about.
 
-Add this file to `javascripts.html`:
+    $rootScope.$broadcast('thought.created', {
+      content: $scope.content,
+      author: {
+        username: Authentication.getAuthenticatedUser().username
+      }
+    });
 
-    <script type="text/javascript" src="{% static 'javascripts/profiles/services/profile.service.js' %}"></script>
+Earlier we set up an event listener in `IndexController` that listened for the `thought.created` event and then pushed the new thought onto the front of `$scope.thoughts`. Let's look at this a little more closely, as this turns out to be an important feature of rich web applications.
 
-## Profile controller
-The next step is to create the controller that will use the service we just created, along with the `Thought` service, to retrieve the data we want to display.
+What we are doing here is being *optimistic* that the API response from `Thoughts.create()` will contain a 200 status code telling us everything went according to plan. This may seem like a bad idea at first. Something could go wrong during the request and then our data is stale. Why don't we just wait for the response?
 
-Create `static/javascripts/profiles/controllers/profile.controller.js` with the following content:
+When I said we are increasing the *perceived* performance of our app, this is what I was talking about. We want the user to *perceive* the response as instant.
 
-    angular.module('borg.profiles.controllers')
-      .controller('ProfileController', function ($location, $routeParams, $scope, Profile, Snackbar, Thoughts) {
-        var username = $routeParams.username.substr(1);
+The fact of the matter is that this call will rarely fail. There are really only two cases where this will reasonably fail: either the user is not authenticated or the server is down.
 
-        Profile.get(username).then(
-          function (data, status, headers, config) {
-            $scope.profile = data.data;
-          },
-          function (data, status, headers, config) {
-            $location.url('/');
-            Snackbar.error('That user does not exist.');
-          }
-        );
+In the case where the user is not authenticated, they shouldn't be submitting new posts anyways. Consider the error to be a small punishment for the user doing things they shouldn't.
 
-        Thoughts.get(username).then(
-          function (data, status, headers, config) {
-            $scope.thoughts = data.data;
-          },
-          function (data, status, headers, config) {
-            Snackbar.error(data.error);
-          }
-        );
-      });
+If the server is down, then there is nothing we can do. Unless the user already had the page loaded before the server crashed, they wouldn't be able to see this page anyways.
 
-Include this file in `javascripts.html`:
+Other things that could possibly go wrong make up such a small percentage that we are willing to allow a slightly worse experience to make the experience better for the 99.9% of cases where everything is working properly.
 
-    <script type="text/javascript" src="{% static 'javascripts/profiles/controllers/profile.controller.js' %}"></script>
+Furthermore, the object we pass as the second argument is meant to emulate the response from the server. This is not the best design pattern because it assumes we know what the response will look like. If the response changes, we have to update this code. However, given what we have, this is an acceptable cost.
 
+So what happens when the API call returns an error?
 
-In this controller, we are sending two AJAX requests at the same time: one for the user's profile and one for their posts. <<-- REFACTOR THIS SHIT. TWO REQUESTS IS RIDICULOUS. DO YOU EVEN PREFETCH_RELATED BRO?
+    $rootScope.$broadcast('thought.created.error');
 
-If `Profile.get()` gets an error response, we can reasonably assume that the user did not exist, so we redirect to the index page and show a snackbar telling the user what happened.
+If the error callback is triggered, then we will broadcast a new event: `thought.created.error`. The event listener we set up earlier will be trigger by this event and remove the post at the front of `$scope.thoughts`. We will also show the error message to the user to let them know what happened.
 
-## Profile template
-To accompany our controller, we will need a template.
+    $scope.closeThisDialog();
 
-Create `static/templates/profiles/profile.html` with the following content:
+This is a method provided by `ngDialog`. All it does is close the model we have open.
 
-    <div ng-show="account">
-      <div class="jumbotron profile__header">
-        <h1 class="profile__username">{{ account.username }}</h1>
-        <p class="profile__tagline">{{ account.tagline }}</p>
+## New Post Template
+With the controller in place, let's add a template for the modal.
+
+Create `static/templates/thoughts/new-thought.html` with the following contents:
+
+    <form role="form" class="thoughts__add-new" ng-submit="submit()">
+      <div class="form-group">
+        <label for="thought__content">Thought</label>
+        <textarea class="form-control" id="thought__content" rows="3" placeholder="We are borg ..." ng-model="content"></textarea>
       </div>
 
-      <thoughts thoughts="thoughts"></thoughts>
-    </div>
+      <div class="form-group">
+        <button type="submit" class="btn btn-primary">
+          Submit
+        </button>
+      </div>
+    </form>
 
-This will render a header with the username and tagline of the profile owner, followed by a list of their posts. The posts are rendered using the directive we created earlier for the index page.
+We now have every thing we need to create new posts. Go ahead and try it out by running your Django server and loading up `http://localhost:8000/` in your browser.
 
-## Profile route
-Open 'static/javascripts/borg.routes.js` and add the following route:
-
-    .when('/+:username', {
-      controller: 'ProfileController',
-      templateUrl: '/static/templates/profiles/profile.html'
-    })
-
-## Go check out a profile
-Open your browser and load up `http://localhost:8000`. Click on the `+<username>` link in the navigation bar to view your profile.
+You'll see the button we added earlier on the left side of the screen (scroll down if you have a number of posts already). Just click it and fill out the form.

@@ -1,370 +1,283 @@
-# Rendering the Borg's Thoughts
-Until now, the index page has been empty. Now that we have handled authentication and the backend details for the `Thought` model, it's time to give our users something to interact with. We will do this by creating a service that handles retrieving and creating `Thought`s and some controllers and directives for handling how the data is displayed.
+# Modeling the Borg's Thoughts
+In this chapter we will make a new app and create a `Thought` model similar to a status on Facebook or a tweet on Twitter. After we create our model we will move on to serializing `Thought`s and then we will create a few new endpoints for our API.
 
-## Thoughts module
-Let's define the thoughts modules.
+Why waste time? Let's jump right in.
 
-Create a file in `static/javascripts/thoughts` called `thoughts.module.js` and add the following:
+## App
+First things first: go ahead and create a new app called `thoughts`.
 
-    angular.module('borg.thoughts', [
-      'borg.thoughts.controllers',
-      'borg.thoughts.directives',
-      'borg.thoughts.services'
-    ]);
+    $ python manage.py start app thoughts
 
-    angular.module('borg.thoughts.controllers', []);
-    angular.module('borg.thoughts.directives', ['ngDialog']);
-    angular.module('borg.thoughts.services', []);
+{x: django_app_thoughts}
+Create a new app named `thoughts`
 
-{x: thoughts_module}
-Define the `borg.thoughts` module
+Remember: whenever you create a new app you have to add it to the `INSTALLED_APPS` setting. Open `thinkster_django_angular_boilerplate/settings.py` and modify it like so:
 
-Remember to add `borg.thoughts` as a dependency of `borg` in `borg.js`:
+    INSTALLED_APPS = (
+        # ...
+        'thoughts',
+    )
 
-    angular.module('borg', [
-      // ...
-      'borg.thoughts'
-    ]);
+## What does the Thought model look like?
+When you created the `thoughts` app Django made a new file called `thoughts/models.py`. Go ahead and open it up and add the following:
 
-{x: thoughts_module_dep_borg}
-Add `borg.thoughts` as a dependency of the `borg` module
+    from django.db import models
+    from django.db.models.signals import pre_delete
+    from django.dispatch import receiver
 
-There are two things worth noting about this module.
+    from authentication.models import UserProfile
 
-First, we have created a module named `borg.thoughts.directives`. As you probably guessed, this means we will introduce the concept of directives to our app in this chapter.
 
-Secondly, the `borg.thoughts.directives` module requires the `ngDialog` module. `ngDialog` is included in the boilerplate project and handles the display of modals. We will use a modal in the next chapter when we write the code for creating new posts.
+    class Thought(models.Model):
+        author = models.ForeignKey(UserProfile)
+        content = models.TextField()
 
-Include this file in `javascripts.html`:
+        created_at = models.DateTimeField(auto_now_add=True)
+        updated_at = models.DateTimeField(auto_now=True)
 
-    <script type="text/javascript" src="{% static 'javascripts/thoughts/thoughts.module.js' %}"></script>
+        def __unicode__(self):
+            return '{0}'.format(self.content)
 
-{x: thoughts_include_module}
-Include `thoughts.module.js` in `javascripts.html`
+        @receiver(pre_delete, sender=UserProfile)
+        def delete_thoughts_for_account(sender, instance=None, **kwargs):
+            if instance:
+                thoughts = Thought.objects.filter(author=instance)
+                thoughts.delete()
 
-## Thoughts Service
-Before we can render anything, we need to transport data from the server to the client. As mentioned, Angular's services are how we accomplish this.
+{x: django_model_thought}
+Create a `Thought` model
 
-Create a file at `static/javascripts/thoughts/services` called `thoughts.service.js` and add the following:
+Our method of walking through the code line-by-line is working well so far. Why mess with a good thing? Let's do it.
 
-    angular.module('borg.thoughts.services')
-      .service('Thoughts', function ($http) {
-        var Thoughts = {
-          all: function () {
-            return $http.get('/api/v1/thoughts/');
-          },
+    author = models.ForeignKey(UserProfile)
 
-          create: function (content) {
-            return $http.post('/api/v1/thoughts/', {
-              content: content
-            });
-          }
-        };
+When we created the `UserProfile` model we associated each `UserProfile` with a `User`. This is called a one-to-one relationship. Because each user can have a number of `Thought`s, we want to set up a different kind of relationship: a many-to-one.
 
-        return Thoughts;
-      });
+The way to do this in Django is with using a `ForeignKey` field to associate each `Thought` with a `UserProfile`. 
 
-{x: thoughts_service}
-Create the `Thoughts` service
+Django is smart enough to know the foreign key we've set up here should be reversible. That is to say, given a `UserProfile`, you should be able to access that user's `Thought`s. In Django these `Thought` objects can be accessed through `UserProfile.thought_set` (not `UserProfile.thoughts`).
 
-Include this file in `javascripts.html`:
+    @receiver(pre_delete, sender=UserProfile)
+    def delete_thoughts_for_profile(sender, instance=None, **kwargs):
+        if instance:
+            thoughts = Thought.objects.filter(author=instance)
+            thoughts.delete()
 
-    <script type="text/javascript" src="{% static 'javascripts/thoughts/services/thoughts.service.js' %}"></script>
+This `pre_delete` hook is similar to the one we set up for `UserProfile`. The difference this time is that we delete the `Thought` objects associated with a `UserProfile` before the `UserProfile` is deleted.
 
-{x: thoughts_service_include_javascripts}
-Include `thoughts.service.js` in `javascripts.html`
+It's interesting to note that this creates a sort of chain. Before a `User` is deleted, the associated `UserProfile` is deleted. Before a `UserProfile` is deleted, the associated `Thought` objects are deleted.
 
-This code should look pretty familiar. It is very similar to the services we created before.
+Now that the model exists, don't forget to migrate.
 
-The `Thoughts` service only has two methods for now: `all` and `create`.
+    $ python manage.py makemigrations
+    $ python manage.py migrate
 
-On the index page, we will use `Thoughts.all()` to get the list of objects we want to display. We will also use `Thoughts.create()` to let users add their own thoughts.
+{x: django_model_thought_migrate}
+Create migrations for `Thought` and apply them
 
-## IndexController
-Now that we can transport `Thought` data from the server to the client, let's start adding some content to the index page. This will involve creating an `IndexController` to handle fetching data when the page is loaded. After that we will create some directives for displaying the data properly.
+## Serializing the Thought model
+Create a new file in `thoughts/` called `serializers.py` and add the following:
 
-Create a file in `static/javascripts/static/controllers/` called `index.controller.js` and add the following:
+    from rest_framework import serializers
 
-    angular.module('borg.static.controllers')
-      .controller('IndexController', function ($scope, Authentication, Snackbar, Thoughts) {
-        $scope.isAuthenticated = !!Authentication.getAuthenticatedUser();
+    from authentication.serializers import UserProfileSerializer
+    from thoughts.models import Thought
 
-        Thoughts.all().then(
-          function (data, status, headers, config) {
-            $scope.thoughts = data.data;
-          },
-          function (data, status, headers, config) {
-            Snackbar.snackbar('ERROR: ' + data.error, {
-              timeout: 3000
-            });
-          }
-        );
 
-        $scope.$on('thought.created', function (e, thought) {
-          $scope.thoughts.unshift(thought);
-          $scope.thoughts = $scope.thoughts.slice(0);
-        });
+    class ThoughtSerializer(serializers.ModelSerializer):
+        author = UserProfileSerializer(required=False)
 
-        $scope.$on('thought.created.error', function () {
-          $scope.thoughts.shift();
-          $scope.thoughts = $scope.thoughts.slice(0);
-        });
-      });
+        class Meta:
+            model = Thought
 
-{x: index_controller}
-Create the `IndexController` controller
+            fields = ('id', 'author', 'content', 'created_at', 'updated_at')
+            read_only_fields = ('id', 'author', 'created_at', 'updated_at')
 
-Include this file in `javascripts.html`:
+        def get_validation_exclusions(self, *args, **kwargs):
+            exclusions = super(ThoughtSerializer, self).get_validation_exclusions()
 
-    <script type="text/javascript" src="{% static 'javascripts/static/controllers/index.controller.js' %}"></script>
+            return exclusions + ['author']
 
-{x: index_controller_include_javascripts}
-Include `index.controller.js` in `javascripts.html`
+{x: django_serializer_thoughtserializer}
+Create a serializer called `ThoughtSerializer`
 
-Let's touch on a few things here.
+There isn't much here that's new, but there is one line in particular I want to look at.
 
-    $scope.isAuthenticated = !!Authentication.getAuthenticatedUser();
+    author = UserProfileSerializer(required=False)
 
-In one of the templates we will create soon, we will add a button that lets the user create a new post. We should only allow a user to create a post if they are authenticated. Because all we need to know about the user is whether they are authenticated, we don't actually need the result of `Authentication.getAuthenticatedUser()`. 
+We explicitly defined a number of fields in our `UserProfileSerializer` from before, but this definition is a little different.
 
-If you remember, `getAuthenticatedUser` will return the user if they are authenticated and `undefined` if they aren't. Using `!!` turns any value into a boolean (true or false) using the values "truthiness". For example, `undefined` is "false-y" in JavaScript. Because of this, `!undefined` is `true`, but this is the negative value of `undefined` -- the opposite of what we want. Negating this value again we get the positive value, `!!undefined` or `false`. This is what we will use in our template to decide whether we are going to show the button to create a new post.
+When serializing a `Thought` object, we want to include all of the author's information. Within Django REST Framework, this is known as a nested relationship. Basically, we are serializing the `UserProfile` related to this `Thought` and including it in our JSON.
 
-    $scope.$on('thought.created', function (e, thought) {
-      $scope.thoughts.unshift(thought);
-      $scope.thoughts = $scope.thoughts.slice(0);
-    });
+We pass `required=False` here because we will set the author of this post automatically.
 
-Later, when we get around to creating a new post, we will fire off an event called `post.created` when the user creates a post. By catching this event here, we can add this new thought to the front of the `$scope.thoughts` array. This will prevent us from having to make an extra API request to the server for updated data. We will talk about this more shortly, but for now you should know that we do this to increase the *perceived* performance of our application.
+     def get_validation_exclusions(self, *args, **kwargs):
+          exclusions = super(ThoughtSerializer, self).get_validation_exclusions()
 
-As you will see in a few minutes, we are going to watch `$scope.thoughts` for changes. Because of the way `$scope.$watch` works in Angular, we need to make `$scope.thoughts` point to a copy of itself to avoid the cost of deep-watching. This is an expensive, albeit acceptable trade off.
+          return exclusions + ['author']
 
-    $scope.$on('thought.created.error', function () {
-      $scope.thoughts.shift();
-      $scope.thoughts = $scope.thoughts.slice(0);
-    });
+For the same reason we use `required=False`, we must also add `author` to the list of validations we wish to skip.
 
-Analogous to the previous event listener, this one will remove the post at the front of `$scope.thoughts` if the API request returns an error status code.
+At this point, feel free to open up your shell with `python manage.py shell` and play around with creating and serializing `Thought` objects.
 
-## Index template
-The template for the index page is just about as short as you could want. We will go into more detail in a moment we create our first directive.
+    >>> from authentication.models import UserProfile
+    >>> from thoughts.models import Thought
+    >>> from thoughts.serializers import ThoughtSerializer
+    >>> u = UserProfile.objects.get(pk=1)
+    >>> t = Thought.objects.create(author=u, content='You will be assimilated!')
+    >>> s = ThoughtSerializer(t)
+    >>> s.data
 
-Create `static/templates/static/index.html` with the following contents:
+{x: django_shell_thought}
+Play around with the `Thought` model and `ThoughtSerializer` serializer in Django's shell
 
-    <thoughts thoughts="thoughts"></thoughts>
+## API Views
+The next step in creating `Thought` objects is adding an API endpoint that will handle performing actions on the `Thought` model such as create or update.
 
-{x: index_template}
-Create the index template
+Replace the contents of `thoughts/views.py` with the following:
 
-Yep. That's all. I told you there wasn't much to it. We will add a little more later, but not much. Most of what we need will be in the template we create for the thoughts directive next.
+    from rest_framework import generics, permissions
 
-## Posts directive
-Directives are widely considered to be one of the more difficult concepts in AngularJS. Personally, I attribute this to what I consider a sub-optimal API. You'll see what I mean in a moment.
+    from authentication.models import UserProfile
+    from thoughts.models import Thought
+    from thoughts.permissions import IsAuthenticatedAndOwnsObject
+    from thoughts.serializers import ThoughtSerializer
 
-Create `static/javascripts/thoughts/directives/thoughts.directive.js` with the following contents:
 
-    angular.module('borg.thoughts.directives')
-      .directive('thoughts', function () {
-        return {
-          controller: 'ThoughtsController',
-          scope: {
-            thoughts: '='
-          },
-          restrict: 'E',
-          templateUrl: '/static/templates/thoughts/thoughts.html' 
-        };
-      });
+    class ThoughtListCreateView(generics.ListCreateAPIView):
+        queryset = Thought.objects.order_by('-created_at')
+        serializer_class = ThoughtSerializer
 
-{x: thoughts_directive}
-Create a `thoughts` directive
+        def get_permissions(self):
+            if self.request.method == 'POST':
+                return (permissions.IsAuthenticated(),)
+            return (permissions.AllowAny(),)
 
-Include this file in `javascripts.html`:
+        def pre_save(self, obj):
+            obj.author = UserProfile.objects.get(user=self.request.user)
+            return super(ThoughtListCreateView, self).pre_save(obj)
 
-    <script type="text/javascript" src="{% static 'javascripts/thoughts/directives/thoughts.directive.js' %}"></script>
 
-{x: thoughts_directive_include_js}
-Include `thoughts.directive.js` in `javascripts.html`
+    class ThoughtRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
+        queryset = Thought.objects.all()
+        serializer_class = ThoughtSerializer
 
-There are two parts of the directives API that I want to touch on: `scope` and `restrict`.
+        def get_permissions(self):
+            if self.request.method not in permissions.SAFE_METHODS:
+                return (IsAuthenticatedAndOwnsObject(),)
+            return (permissions.AllowAny(),)
 
-    scope: {
-      thoughts: '='
-    },
+{x: django_view_thought_listcreate}
+Create a view for listing and creating `Thought` objects
 
-`scope` defines the scope of this directive, similar to how `$scope` works for controllers. The difference is that, in a controller, a new scope is implicitly created. For a directive, we have the option of explicitly defining our scopes and that's what we do here.
+{x: django_view_thought_retrieveupdatedestroy}
+Create a view for reading, updating and destroying `Thought` objects
 
-The second line, `thoughts: '='` simply means that we want to set `$scope.thoughts` to the value passed in through the `thoughts` attribute in the template that we made earlier.
 
-    restrict: 'E',
+Do these views look similar? They aren't that different than the ones we made to create `User` objects.
 
-`restrict` tells Angular how we are allowed to use this directive. In our case, we set the value of `restrict` to `E` (for element) which means Angular should only match the name of our directive with the name of an element: `<thoughts></thoughts>`. 
+    def pre_save(self, obj):
+        obj.author = UserProfile.objects.get(user=self.request.user)
+        return super(ThoughtListCreateView, self).pre_save(obj)
 
-Another common option is `A` (for attribute), which tells Angular to only match the name of the directive with the name of an attribute. `ngDialog` uses this option, as we will see shortly.
+When a `Thought` object is created it has to be associated with an author. Making the author type in their own username or id when creating adding a thought to the site would be a bad experience, so we handle this association for them.
 
-## PostsController
-The directive we just created requires a controller called `PostsController`. 
+`pre_save` is a method provided by the mixins used in `generics.ListCreateAPIView` (which we inherit from) that can be overridden. 
 
-Create `static/javascripts/thoughts/controllers/posts.controller.js` with the following content:
+We take advantage of this feature to look up the currently logged in user's `UserProfile` and then use that profile as the `author` attribute for the `Thought` we are creating.
 
-    angular.module('borg.thoughts.controllers')
-      .controller('ThoughtsController', function ($scope) {
-       $scope.nodes = [];
+    def get_permissions(self):
+        if self.request.method == 'POST':
+            return (permissions.IsAuthenticated(),)
+        return (permissions.AllowAny(),)
 
-        var calculateNumberOfColumns = function () {
-          var width = $(window).width();
+Only authenticated users should be allowed to create new `Thought`s. To satisfy this constraint we override `get_permissions`. 
 
-          if (width >= 1200) { return 4; } 
-          else if (width >= 992) { return 3; } 
-          else if (width >= 768) { return 2; } 
-      
-          return 1;
-        };
+If the request is a `POST` (the user is trying to create a new `Thought`), then we only allow authenticated users to continue. However, if the request is a `GET` (the only other HTTP verb this view accepts), then we will allow both authenticated and non-authenticated users to continue.
 
-        var getSmallestNode = function () {
-          var scores = $scope.nodes.map(function (node) {
-            var sum = function (a, b) { return a + b; };
+    class ThoughtRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
 
-            var lengths = node.map(function (element) {
-              return element.content.length;
-            });
+That's quite a long name, huh?
 
-            return lengths.reduce(sum, 0) * node.length;
-          });
+Even though we create this view and add an endpoint for it, we will not be using it in our application. It is considered good practice to make sure the software interface you implement are complete. For us, that makes being able to create, read, update, destroy, and list `Thought` objects. 
 
-          return scores.indexOf(
-            Math.min.apply(this, scores)
-          );
-        };
+We include this class to ensure we are providing a complete interface for handling `Thought` objects.
 
-        var render = function (newValue, oldValue) {
-          if (newValue !== oldValue) {
-            var thoughts = newValue;
+    def get_permissions(self):
+        if self.request.method not in permissions.SAFE_METHODS:
+            return (IsAuthenticatedAndOwnsObject(),)
+        return (permissions.AllowAny(),)
 
-            $scope.nodes = [];
+Similar to the other view, we need to handle the permissions for updating and destroying `Thought`s here.
 
-            var numberOfColumns = calculateNumberOfColumns();
+Django REST Framework provides a list of "safe" HTTP methods -- actions that do not modify data on the server, like `GET`. If the method for this request is not in that list, then we need to satisfy two constraints: the user must be authenticated and they must be own the object they are trying to modify.
 
-            for (var i = 0; i < numberOfColumns; ++i) {
-              $scope.nodes.push([]);
-            }
+`IsAuthenticatedAndOwnsObject` is a permission that we will implement ourselves now.
 
-            for (var i = 0; i < thoughts.length; ++i) {
-              var node = getSmallestNode();
+## Permissions
+Create `permissions.py` in the `thoughts/` directory with the following content:
 
-              $scope.nodes[node].push(thoughts[i]);
-            }
-          }
-        };
+    from rest_framework import permissions
 
+    from thoughts.models import Thought
 
-        $scope.$watch(function () { return $scope.thoughts; }, render);
-        $scope.$watch(function () { return $(window).width(); }, render);
-      });
 
-{x: posts_controller}
-Create a `PostsController` controller
+    class IsAuthenticatedAndOwnsObject(permissions.BasePermission):
+        def has_permission(self, request, view):
+            if not request.user.is_authenticated():
+                return False
 
-Include this file in `javascripts.html`:
+            _id = self.kwargs['pk']
 
-    <script type="text/javascript" src="{% static 'javascripts/thoughts/controllers/thoughts.controller.js' %}"></script>
+            return Thought.objects.filter(id=_id, author_id=request.user).exists()
 
-{x: posts_controller_include_js}
-Include `posts.controller.js` in `javascripts.html`
+{x: django_permission_isauthenticatedandownsobject}
+Create an `IsAuthenticatedAndOwnsObject` permission
 
-It isn't worth taking the time to step through this controller line-by-line. Suffice it to say that this controller presents an algorithm for ensuring the columns of posts are of approximately equal height.
+Let's step thought the code.
 
-## Posts template
-In our directive we defined a `templateUrl` that doesn't match any of our existing templates. Let's go ahead and make a new one.
+    class IsAuthenticatedAndOwnsObject(permissions.BasePermission):
 
-Create `static/templates/thoughts/thoughts.html` with the following content:
+When creating custom permissions with Django REST Framework, you should inherit from `permissions.BasePermission`. Django REST Framework, once again, handles a lot of boilerplate for us.
 
-    <div class="row" ng-cloak>
-      <div ng-repeat="node in nodes" ng-show="thoughts && thoughts.length">
-        <div class="col-xs-12 col-sm-6 col-md-4 col-lg-3">
-          <div ng-repeat="thought in node">
-            <thought thought="thought"></thought>
-          </div>
-        </div>
-      </div>
+Custom permissions should return `True` if the user has permission to continue and `False` otherwise.
 
-      <div ng-hide="thoughts && thoughts.length">
-        <div class="col-sm-12" style="text-align: center;">
-          <em>The Borg has no thoughts.</em>
-        </div>
-      </div>
-    </div>
+    if not request.user.is_authenticated():
+        return False
 
-{x: posts_template}
-Create a template for the `posts` directive
+Remember our first constraint? The user must be authenticated. `is_authenticated()` is a method provided by Django for handling this check.
 
-A few things worth noting:
+    _id = self.kwargs['pk']
 
-1. We use the `ng-cloak` directive to prevent flashing since this directive will be used on the first page loaded.
-2. We will need to create a `thought` directive for rendering each individual post.
-3. If no thoughts are present, we render a message informing the user.
+Presumably the request includes the `id` of the `Thought` we are modifying. We grab that now to make the next line shorter.
 
-## Post directive
-In the template for the posts directive, we use another directive called `post`. Let's create that.
+    return Thought.objects.filter(id=_id, author_id=request.user).exists()
 
-Create `static/javascripts/thoughts/directives/thought.directive.js` with the following content:
+This line satisfies our second constraint: the user must own this object. 
 
-    angular.module('borg.thoughts.directives')
-      .directive('thought', function () {
-        return {
-          scope: {
-            thought: '='
-          },
-          restrict: 'E',
-          templateUrl: '/static/templates/thoughts/thought.html'
-        };
-      });
+What we're doing here is filtering all `Thoughts` for anything matching the id and user provided. The `exists()` method returns `True` if our query found any matches and `False` otherwise.
 
-{x: post_directive}
-Create a `post` directive
+## API Endpoints
+With the views created, it's time to add the endpoints to our API.
 
-Include this file in `javascripts.html`:
+Open `thinkster_django_angular_boilerplate/urls.py` and add the following urls:
 
-    <script type="text/javascript" src="{% static 'javascripts/thoughts/directives/thought.directive.js' %}"></script>
+    from thoughts.views import ThoughtListCreateView, \
+        ThoughtRetrieveUpdateDestroyView
 
-{x: post_directive_include_js}
-Include `post.directive.js` in `javascripts.html`
+    urlpatterns = patterns(
+        # ...,
 
-There is nothing new worth discussing here. This directive is almost identical to the previous one. The only difference is we use a different template.
+        url(r'^api/v1/thoughts/$',
+            ThoughtListCreateView.as_view(), name='thoughts'),
+        url(r'^api/v1/thoughts/(?P<pk>[0-9]+)/$',
+            ThoughtRetrieveUpdateDestroyView.as_view(), name='thought'),
 
-## Post template
-Like we did for the `posts` directive, we now need to make a template for the `post` directive.
+        # ...,
+    )
 
-Create `static/templates/thoughts/thought.html` with the following content:
+{x: django_url_thought_listcreate}
+Create API endpoint for `ThoughtListCreateView`
 
-    <div class="row">
-      <div class="col-sm-12">
-        <div class="well thought">
-          <div class="thought__meta">
-            <a href="/+{{ thought.author.username }}">
-              +{{ thought.author.username }}
-            </a>
-          </div>
-
-          <div class="thoguht__content">
-            {{ thought.content }}
-          </div>
-        </div>
-      </div>
-    </div>
-
-{x: post_template}
-Create a template for the `post` directive
-
-There are a few special CSS classes here that we will address later, but that's about it.
-
-## Index route
-Now that we have all of our services and directives ready to go, let's specify the controller and template for the the index route.
-
-Open `static/javascripts/borg.routes.js` and add the following route:
-
-    .when('/', {
-      controller: 'IndexController',
-      templateUrl: '/static/templates/static/index.html'
-    })
-
-{x: index_route}
-Add a route to `borg.routes.js` for the `/` path
+{x: django_url_thought_retrieveupdatedestroy}
+Create API endpoint for `ThoughtRetrieveUpdateDestroyView`

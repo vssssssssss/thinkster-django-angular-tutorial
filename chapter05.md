@@ -1,283 +1,134 @@
-# Modeling the Borg's Thoughts
-In this chapter we will make a new app and create a `Thought` model similar to a status on Facebook or a tweet on Twitter. After we create our model we will move on to serializing `Thought`s and then we will create a few new endpoints for our API.
+## Logout: API Views and URLs
+Let's implement the last authentication-related API view.
 
-Why waste time? Let's jump right in.
+Open up `authentication/views.py` and add the following imports and class:
 
-## App
-First things first: go ahead and create a new app called `thoughts`.
-
-    $ python manage.py start app thoughts
-
-{x: django_app_thoughts}
-Create a new app named `thoughts`
-
-Remember: whenever you create a new app you have to add it to the `INSTALLED_APPS` setting. Open `thinkster_django_angular_boilerplate/settings.py` and modify it like so:
-
-    INSTALLED_APPS = (
-        # ...
-        'thoughts',
-    )
-
-## What does the Thought model look like?
-When you created the `thoughts` app Django made a new file called `thoughts/models.py`. Go ahead and open it up and add the following:
-
-    from django.db import models
-    from django.db.models.signals import pre_delete
-    from django.dispatch import receiver
-
-    from authentication.models import UserProfile
-
-
-    class Thought(models.Model):
-        author = models.ForeignKey(UserProfile)
-        content = models.TextField()
-
-        created_at = models.DateTimeField(auto_now_add=True)
-        updated_at = models.DateTimeField(auto_now=True)
-
-        def __unicode__(self):
-            return '{0}'.format(self.content)
-
-        @receiver(pre_delete, sender=UserProfile)
-        def delete_thoughts_for_account(sender, instance=None, **kwargs):
-            if instance:
-                thoughts = Thought.objects.filter(author=instance)
-                thoughts.delete()
-
-{x: django_model_thought}
-Create a `Thought` model
-
-Our method of walking through the code line-by-line is working well so far. Why mess with a good thing? Let's do it.
-
-    author = models.ForeignKey(UserProfile)
-
-When we created the `UserProfile` model we associated each `UserProfile` with a `User`. This is called a one-to-one relationship. Because each user can have a number of `Thought`s, we want to set up a different kind of relationship: a many-to-one.
-
-The way to do this in Django is with using a `ForeignKey` field to associate each `Thought` with a `UserProfile`. 
-
-Django is smart enough to know the foreign key we've set up here should be reversible. That is to say, given a `UserProfile`, you should be able to access that user's `Thought`s. In Django these `Thought` objects can be accessed through `UserProfile.thought_set` (not `UserProfile.thoughts`).
-
-    @receiver(pre_delete, sender=UserProfile)
-    def delete_thoughts_for_profile(sender, instance=None, **kwargs):
-        if instance:
-            thoughts = Thought.objects.filter(author=instance)
-            thoughts.delete()
-
-This `pre_delete` hook is similar to the one we set up for `UserProfile`. The difference this time is that we delete the `Thought` objects associated with a `UserProfile` before the `UserProfile` is deleted.
-
-It's interesting to note that this creates a sort of chain. Before a `User` is deleted, the associated `UserProfile` is deleted. Before a `UserProfile` is deleted, the associated `Thought` objects are deleted.
-
-Now that the model exists, don't forget to migrate.
-
-    $ python manage.py makemigrations
-    $ python manage.py migrate
-
-{x: django_model_thought_migrate}
-Create migrations for `Thought` and apply them
-
-## Serializing the Thought model
-Create a new file in `thoughts/` called `serializers.py` and add the following:
-
-    from rest_framework import serializers
-
-    from authentication.serializers import UserProfileSerializer
-    from thoughts.models import Thought
-
-
-    class ThoughtSerializer(serializers.ModelSerializer):
-        author = UserProfileSerializer(required=False)
-
-        class Meta:
-            model = Thought
-
-            fields = ('id', 'author', 'content', 'created_at', 'updated_at')
-            read_only_fields = ('id', 'author', 'created_at', 'updated_at')
-
-        def get_validation_exclusions(self, *args, **kwargs):
-            exclusions = super(ThoughtSerializer, self).get_validation_exclusions()
-
-            return exclusions + ['author']
-
-{x: django_serializer_thoughtserializer}
-Create a serializer called `ThoughtSerializer`
-
-There isn't much here that's new, but there is one line in particular I want to look at.
-
-    author = UserProfileSerializer(required=False)
-
-We explicitly defined a number of fields in our `UserProfileSerializer` from before, but this definition is a little different.
-
-When serializing a `Thought` object, we want to include all of the author's information. Within Django REST Framework, this is known as a nested relationship. Basically, we are serializing the `UserProfile` related to this `Thought` and including it in our JSON.
-
-We pass `required=False` here because we will set the author of this post automatically.
-
-     def get_validation_exclusions(self, *args, **kwargs):
-          exclusions = super(ThoughtSerializer, self).get_validation_exclusions()
-
-          return exclusions + ['author']
-
-For the same reason we use `required=False`, we must also add `author` to the list of validations we wish to skip.
-
-At this point, feel free to open up your shell with `python manage.py shell` and play around with creating and serializing `Thought` objects.
-
-    >>> from authentication.models import UserProfile
-    >>> from thoughts.models import Thought
-    >>> from thoughts.serializers import ThoughtSerializer
-    >>> u = UserProfile.objects.get(pk=1)
-    >>> t = Thought.objects.create(author=u, content='You will be assimilated!')
-    >>> s = ThoughtSerializer(t)
-    >>> s.data
-
-{x: django_shell_thought}
-Play around with the `Thought` model and `ThoughtSerializer` serializer in Django's shell
-
-## API Views
-The next step in creating `Thought` objects is adding an API endpoint that will handle performing actions on the `Thought` model such as create or update.
-
-Replace the contents of `thoughts/views.py` with the following:
-
-    from rest_framework import generics, permissions
-
-    from authentication.models import UserProfile
-    from thoughts.models import Thought
-    from thoughts.permissions import IsAuthenticatedAndOwnsObject
-    from thoughts.serializers import ThoughtSerializer
-
-
-    class ThoughtListCreateView(generics.ListCreateAPIView):
-        queryset = Thought.objects.order_by('-created_at')
-        serializer_class = ThoughtSerializer
-
-        def get_permissions(self):
-            if self.request.method == 'POST':
-                return (permissions.IsAuthenticated(),)
-            return (permissions.AllowAny(),)
-
-        def pre_save(self, obj):
-            obj.author = UserProfile.objects.get(user=self.request.user)
-            return super(ThoughtListCreateView, self).pre_save(obj)
-
-
-    class ThoughtRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
-        queryset = Thought.objects.all()
-        serializer_class = ThoughtSerializer
-
-        def get_permissions(self):
-            if self.request.method not in permissions.SAFE_METHODS:
-                return (IsAuthenticatedAndOwnsObject(),)
-            return (permissions.AllowAny(),)
-
-{x: django_view_thought_listcreate}
-Create a view for listing and creating `Thought` objects
-
-{x: django_view_thought_retrieveupdatedestroy}
-Create a view for reading, updating and destroying `Thought` objects
-
-
-Do these views look similar? They aren't that different than the ones we made to create `User` objects.
-
-    def pre_save(self, obj):
-        obj.author = UserProfile.objects.get(user=self.request.user)
-        return super(ThoughtListCreateView, self).pre_save(obj)
-
-When a `Thought` object is created it has to be associated with an author. Making the author type in their own username or id when creating adding a thought to the site would be a bad experience, so we handle this association for them.
-
-`pre_save` is a method provided by the mixins used in `generics.ListCreateAPIView` (which we inherit from) that can be overridden. 
-
-We take advantage of this feature to look up the currently logged in user's `UserProfile` and then use that profile as the `author` attribute for the `Thought` we are creating.
-
-    def get_permissions(self):
-        if self.request.method == 'POST':
-            return (permissions.IsAuthenticated(),)
-        return (permissions.AllowAny(),)
-
-Only authenticated users should be allowed to create new `Thought`s. To satisfy this constraint we override `get_permissions`. 
-
-If the request is a `POST` (the user is trying to create a new `Thought`), then we only allow authenticated users to continue. However, if the request is a `GET` (the only other HTTP verb this view accepts), then we will allow both authenticated and non-authenticated users to continue.
-
-    class ThoughtRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
-
-That's quite a long name, huh?
-
-Even though we create this view and add an endpoint for it, we will not be using it in our application. It is considered good practice to make sure the software interface you implement are complete. For us, that makes being able to create, read, update, destroy, and list `Thought` objects. 
-
-We include this class to ensure we are providing a complete interface for handling `Thought` objects.
-
-    def get_permissions(self):
-        if self.request.method not in permissions.SAFE_METHODS:
-            return (IsAuthenticatedAndOwnsObject(),)
-        return (permissions.AllowAny(),)
-
-Similar to the other view, we need to handle the permissions for updating and destroying `Thought`s here.
-
-Django REST Framework provides a list of "safe" HTTP methods -- actions that do not modify data on the server, like `GET`. If the method for this request is not in that list, then we need to satisfy two constraints: the user must be authenticated and they must be own the object they are trying to modify.
-
-`IsAuthenticatedAndOwnsObject` is a permission that we will implement ourselves now.
-
-## Permissions
-Create `permissions.py` in the `thoughts/` directory with the following content:
+    from django.contrib.auth import logout
 
     from rest_framework import permissions
 
-    from thoughts.models import Thought
+    class LogoutView(views.APIView):
+         permission_classes = (permissions.IsAuthenticated,)
 
+        def post(self, request, format=None):
+            logout(request)
 
-    class IsAuthenticatedAndOwnsObject(permissions.BasePermission):
-        def has_permission(self, request, view):
-            if not request.user.is_authenticated():
-                return False
+            return Response()
 
-            _id = self.kwargs['pk']
+{x: django_logout_view}
+Add a `LogoutView` to `authentication/views.py`
 
-            return Thought.objects.filter(id=_id, author_id=request.user).exists()
+There are only a few new things to talk about this time.
 
-{x: django_permission_isauthenticatedandownsobject}
-Create an `IsAuthenticatedAndOwnsObject` permission
+    permission_classes = (permissions.IsAuthenticated,)
 
-Let's step thought the code.
+Only authenticated users should be able to hit this endpoint. Django REST Framework's `permissions.IsAuthenticated` handles this for us. If you user is not authenticated, they will get a `403` error.
 
-    class IsAuthenticatedAndOwnsObject(permissions.BasePermission):
+    logout(request)
 
-When creating custom permissions with Django REST Framework, you should inherit from `permissions.BasePermission`. Django REST Framework, once again, handles a lot of boilerplate for us.
+If the user is authenticated, all we need to do is call Django's `logout()` method.
 
-Custom permissions should return `True` if the user has permission to continue and `False` otherwise.
+    return Response()
 
-    if not request.user.is_authenticated():
-        return False
+There isn't anything reasonable to return when logging out, so we just return an empty response with a `200` status code.
 
-Remember our first constraint? The user must be authenticated. `is_authenticated()` is a method provided by Django for handling this check.
+Moving on to the URLs.
 
-    _id = self.kwargs['pk']
+Open up `thinkster_django_angular_boilerplate/urls.py` again and add the following import and URL:
 
-Presumably the request includes the `id` of the `Thought` we are modifying. We grab that now to make the next line shorter.
-
-    return Thought.objects.filter(id=_id, author_id=request.user).exists()
-
-This line satisfies our second constraint: the user must own this object. 
-
-What we're doing here is filtering all `Thoughts` for anything matching the id and user provided. The `exists()` method returns `True` if our query found any matches and `False` otherwise.
-
-## API Endpoints
-With the views created, it's time to add the endpoints to our API.
-
-Open `thinkster_django_angular_boilerplate/urls.py` and add the following urls:
-
-    from thoughts.views import ThoughtListCreateView, \
-        ThoughtRetrieveUpdateDestroyView
+    from authentication.views import LogoutView
 
     urlpatterns = patterns(
-        # ...,
-
-        url(r'^api/v1/thoughts/$',
-            ThoughtListCreateView.as_view(), name='thoughts'),
-        url(r'^api/v1/thoughts/(?P<pk>[0-9]+)/$',
-            ThoughtRetrieveUpdateDestroyView.as_view(), name='thought'),
-
-        # ...,
+        # ...
+        url(r'^api/v1/auth/logout/$', LogoutView.as_view(), name='logout'),
+        #...
     )
 
-{x: django_url_thought_listcreate}
-Create API endpoint for `ThoughtListCreateView`
+{x: django_url_logout}
+Create an API endpoint for `LogoutView`
 
-{x: django_url_thought_retrieveupdatedestroy}
-Create API endpoint for `ThoughtRetrieveUpdateDestroyView`
+## Logout: AngularJS Service
+The final method you need to add to your `Authentication` service is the `logout()` method.
+
+Add the following method to the `Authentication` service in `authentication.service.js`:
+
+    logout: function (username, password) {
+      return $http.post('/api/v1/auth/logout/')
+        .then(function (data, status, headers, config) {
+          Authentication.unauthenticate();
+          
+          window.location = '/';
+        }, function (data, status, headers, config) {
+          console.error('Epic failure!');
+        });
+      },
+
+{x: angularjs_authentication_service_logout}
+Add a `logout()` method to your `Authentication` service
+
+## Logout: AngularJS Controller and Template
+There will not actually be a `LogoutController` or `logout.html`. Instead, the navigation bar already contains a logout link for authenticated users. We will create a `NavbarController` for handling the logout buttons `onclick` functionality and we will update the link itself with an `ng-click` attribute.
+
+Create a file in `static/javascripts/static/controllers/` called `navbar.controller.js` and add the following to it:
+
+    angular.module('borg.static.controllers')
+      .controller('NavbarController', function ($scope, Authentication) {
+        $scope.logout = function () {
+          Authentication.logout();
+        };
+      });
+
+{x: angularjs_navbar_controller}
+Create a `NavbarController` in `static/javascripts/static/controllers/navbar.controller.js`
+
+Open `templates/navbar.html` and add an `mg-controller` directive with the value `NavbarController` to the `<nav />` tag like so:
+
+    <nav class="navbar navbar-default" role="navigation" ng-controller="NavbarController">
+
+While you have `templates/navbar.html` open, go ahead and find the logout link and add `ng-click="logout()"` to it like so:
+
+    <li><a href="javascript:void(0)" ng-click="logout()">Logout</a></li>
+
+{x: angularjs_navbar_template_update}
+Update `navbar.html` to include the `ng-controller` and `ng-click` directives where appropriate
+
+## Logout: AngularJS Modules
+We need to add a few new modules this time around.
+
+Create a file in `static/javascripts/static/` called `static.module.js` and give it the following contents:
+
+    angular.module('borg.static', [
+      'borg.static.controllers'
+    ]);
+
+    angular.module('borg.static.controllers', []);
+
+And don't forget to update `static/javascripts/borg.js` also:
+
+    angular.module('borg', [
+      // ...
+      'borg.static'
+    ]);
+
+{x: angularjs_static_module}
+Define new `borg.static` and `borg.static.controllers` modules
+
+## Logout: Include new .js files
+This time around there are a couple new JavaScript files to include. Open up `javascripts.html` and add the following:
+
+    <script type="text/javascript" src="{% static 'javascripts/static/static.module.js' %}"></script>
+    <script type="text/javascript" src="{% static 'javascripts/static/controllers/navbar.controller.js' %}"></script>
+
+{x: include_javascript_static}
+Include new JavaScript files in `javascripts.html`
+
+## Seriously, go away. You need a break. I know I do.
+This has been a long chapter, but we have covered so much ground! Authentication is a very time consuming endeavor, and we haven't even scratched the surface of it. There are many speed optimizations and security concerns to worry about that we haven't identified here.
+
+With that said, you should be incredibly proud of what you've done so far. Most people will never implement an authentication system.
+
+To recap, in this chapter we have touched on registration, login, and logout. You implemented API views, services, and controllers for each feature. The code you've written is both clean and modular and you are now ready to move on to building the rest of your application.
+
+In the next chapter we will begin modeling Thoughts, which are our rendition of typical social network posts/statuses/tweets/whatever. Once we have our models fleshed out, we will move on to serialization and finally move on to creating some more API views. 
+
+A lot of what we cover in the next chapter will be review for you, but repetition is a great way to learn. Because we won't be presenting many new concepts as we go forward, I will leave you with a challenge: From now on, try figuring out what the code will look like before reading the snippets. This turns repetition into active learning and it gives your brain a workout at the same time. Good luck!
