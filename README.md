@@ -1,10 +1,9 @@
 # thinkster-django-angular-tutorial
-
-In this tutorial you will learn how to build a web application with Django and AngularJS. By the end of the tutorial, you will have built a simplified Google+ clone (with a hint of Borg) and deployed it to Heroku. 
+In this tutorial you will build a simplified Google+ clone called “Not Google Plus” with Django and AngularJS.
 
 ## Chapters
 
- 1.  [Welcome, Third of Five!](chapter00.md) **FINAL**
+ 1.  [Introduction](chapter00.md) **FINAL**
  2.  [Extending Django's built-in User model](chapter01.md) **FINAL**
  3.  [Serializing the User and UserProfile models](chapter02.md) **FINAL**
  4.  [Registering new users](chapter03.md) **FINAL**
