@@ -45,6 +45,8 @@ The application we will be building requires a non-trivial amount of boilerplate
 
 You can find the boilerplate project on Github at [brwr/thinkster-django-angular-boilerplate](https://github.com/brwr/thinkster-django-angular-boilerplate). The repository includes a list of commands you need to run to get everything running.
 
+*NOTE: The boilerplate project requires PostgreSQL to be installed. You can download PostgreSQL [here](http://www.postgresql.org/download/).*
+
 *NOTE: If you are interested in a detailed appendix on setting up your environment, reach out to [@jamesbrwr](http://twitter.com/jamesbrwr) on Twitter.*
 
 Go ahead and follow the setup instructions now.
