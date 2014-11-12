@@ -249,7 +249,6 @@ Create `static/javascripts/profiles/controllers/profile.controller.js` with the 
         var vm = this;
 
         vm.profile = undefined;
-        vm.promiseResolved = false;
         vm.posts = [];
 
         activate();
@@ -263,17 +262,16 @@ Create `static/javascripts/profiles/controllers/profile.controller.js` with the 
           var username = $routeParams.username.substr(1);
 
           Profile.get(username).then(profileSuccessFn, profileErrorFn);
-
+          Posts.get(username).then(postsSuccessFn, postsErrorFn);
 
           /**
           * @name profileSuccessProfile
-          * @desc Update `profile` and `posts` on view
+          * @desc Update `profile` on viewmodel
           */
           function profileSuccessFn(data, status, headers, config) {
             vm.profile = data.data;
-            vm.promiseResolved = true;
-            vm.posts = vm.profile.thoughts;
           }
+
 
           /**
           * @name profileErrorFn
@@ -282,6 +280,24 @@ Create `static/javascripts/profiles/controllers/profile.controller.js` with the 
           function profileErrorFn(data, status, headers, config) {
             $location.url('/');
             Snackbar.error('That user does not exist.');
+          }
+
+
+          /**
+            * @name postsSucessFn
+            * @desc Update `posts` on viewmodel
+            */
+          function postsSuccessFn(data, status, headers, config) {
+            vm.posts = data.data;
+          }
+
+
+          /**
+            * @name postsErrorFn
+            * @desc Show error snackbar
+            */
+          function postsErrorFn(data, status, headers, config) {
+            Snackbar.error(data.data.error);
           }
         }
       }
