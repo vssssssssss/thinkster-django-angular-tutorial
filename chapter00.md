@@ -1,4 +1,4 @@
-# Welcome, friend.
+# Introduction
 In this tutorial you will build a simplified Google+ clone called “Not Google Plus” with Django and AngularJS.
 
 Before we hit the proverbial books and learn to build a rich, modern web application with Django and Angular, let's take a moment to explore the motivations behind this tutorial and how you can get the most out of it.
