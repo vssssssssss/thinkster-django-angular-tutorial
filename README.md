@@ -10,8 +10,8 @@ In this tutorial you will build a simplified Google+ clone called “Not Google 
  5.  [Logging users in](chapter04.md) **FINAL**
  6.  [Logging users out](chapter05.md) **FINAL**
  7.  [Making a Post model](chapter06.md) **FINAL**
- 8.  [Rendering the Borg's Thoughts](chapter07.md)
- 9.  [Creating new posts](chapter08.md)
- 10. [User profiles](chapter09.md)
+ 8.  [Rendering Post objects](chapter07.md) **FINAL**
+ 9.  [Making new posts](chapter08.md) **FINAL**
+ 10. [Displaying user profiles](chapter09.md)
  11. [Updating user profiles](chapter10.md) **FINAL**
  12. [Congratulations, you did it!](chapter11.md) **FINAL**

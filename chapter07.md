@@ -1,188 +1,301 @@
-# Rendering the Borg's Thoughts
-Until now, the index page has been empty. Now that we have handled authentication and the backend details for the `Thought` model, it's time to give our users something to interact with. We will do this by creating a service that handles retrieving and creating `Thought`s and some controllers and directives for handling how the data is displayed.
+# Rendering Post objects
+Until now, the index page has been empty. Now that we have handled authentication and the backend details for the `Postt` model, it's time to give our users something to interact with. We will do this by creating a service that handles retrieving and creating `Postt`s and some controllers and directives for handling how the data is displayed.
 
-## Thoughts module
-Let's define the thoughts modules.
+## A module for posts
+Let's define the posts modules.
 
-Create a file in `static/javascripts/thoughts` called `thoughts.module.js` and add the following:
+Create a file in `static/javascripts/posts` called `posts.module.js` and add the following:
 
-    angular.module('borg.thoughts', [
-      'borg.thoughts.controllers',
-      'borg.thoughts.directives',
-      'borg.thoughts.services'
-    ]);
+    (function () {
+      'use strict';
 
-    angular.module('borg.thoughts.controllers', []);
-    angular.module('borg.thoughts.directives', ['ngDialog']);
-    angular.module('borg.thoughts.services', []);
+      angular
+        .module('thinkster.posts', [
+          'thinkster.posts.controllers',
+          'thinkster.posts.directives',
+          'thinkster.posts.services'
+        ]);
 
-{x: thoughts_module}
-Define the `borg.thoughts` module
+      angular
+        .module('thinkster.posts.controllers', []);
 
-Remember to add `borg.thoughts` as a dependency of `borg` in `borg.js`:
+      angular
+        .module('thinkster.posts.directives', ['ngDialog']);
 
-    angular.module('borg', [
-      // ...
-      'borg.thoughts'
-    ]);
+      angular
+        .module('thinkster.posts.services', []);
+    })();
 
-{x: thoughts_module_dep_borg}
-Add `borg.thoughts` as a dependency of the `borg` module
+{x: posts_module}
+Define the `thinkster.posts` module
+
+Remember to add `thinkster.posts` as a dependency of `thinkster` in `thinkster.js`:
+
+    angular
+      .module('thinkster', [
+        'thinkster.config',
+        'thinkster.routes',
+        'thinkster.authentication',
+        'thinkster.layout',
+        'thinkster.posts'
+      ]);
+
+{x: posts_module_dep_thinkster}
+Add `thinkster.posts` as a dependency of the `thinkster` module
 
 There are two things worth noting about this module.
 
-First, we have created a module named `borg.thoughts.directives`. As you probably guessed, this means we will introduce the concept of directives to our app in this chapter.
+First, we have created a module named `thinkster.posts.directives`. As you probably guessed, this means we will introduce the concept of directives to our app in this chapter.
 
-Secondly, the `borg.thoughts.directives` module requires the `ngDialog` module. `ngDialog` is included in the boilerplate project and handles the display of modals. We will use a modal in the next chapter when we write the code for creating new posts.
+Secondly, the `thinkster.posts.directives` module requires the `ngDialog` module. `ngDialog` is included in the boilerplate project and handles the display of modals. We will use a modal in the next chapter when we write the code for creating new posts.
 
 Include this file in `javascripts.html`:
 
-    <script type="text/javascript" src="{% static 'javascripts/thoughts/thoughts.module.js' %}"></script>
+    <script type="text/javascript" src="{% static 'javascripts/posts/posts.module.js' %}"></script>
 
-{x: thoughts_include_module}
-Include `thoughts.module.js` in `javascripts.html`
+{x: posts_include_module}
+Include `posts.module.js` in `javascripts.html`
 
-## Thoughts Service
-Before we can render anything, we need to transport data from the server to the client. As mentioned, Angular's services are how we accomplish this.
+## Making a Posts service
+Before we can render anything, we need to transport data from the server to the client.
 
-Create a file at `static/javascripts/thoughts/services` called `thoughts.service.js` and add the following:
+Create a file at `static/javascripts/posts/services/` called `posts.service.js` and add the following:
 
-    angular.module('borg.thoughts.services')
-      .service('Thoughts', function ($http) {
-        var Thoughts = {
-          all: function () {
-            return $http.get('/api/v1/thoughts/');
-          },
+    /**
+    * Posts
+    * @namespace thinkster.posts.services
+    */
+    (function () {
+      'use strict';
 
-          create: function (content) {
-            return $http.post('/api/v1/thoughts/', {
-              content: content
-            });
-          }
+      angular
+        .module('thinkster.posts.services')
+        .factory('Posts', Posts);
+
+      Posts.$inject = ['$http'];
+
+      /**
+      * @namespace Posts
+      * @returns {Factory}
+      */
+      function Posts($http) {
+        var Posts = {
+          all: all,
+          create: create
         };
 
-        return Thoughts;
-      });
+        return Posts;
 
-{x: thoughts_service}
-Create the `Thoughts` service
+        ////////////////////
+        
+        /**
+        * @name all
+        * @desc Get all Posts
+        * @returns {Promise}
+        * @memberOf thinkster.posts.services.Posts
+        */
+        function all() {
+          return $http.get('/api/v1/posts/');
+        }
+
+
+        /**
+        * @name create
+        * @desc Create a new Post
+        * @param {string} content The content of the new Post
+        * @returns {Promise}
+        * @memberOf thinkster.posts.services.Posts
+        */
+        function create(content) {
+          return $http.post('/api/v1/posts/', {
+            content: content
+          });
+        }
+      }
+    })();
+
+{x: posts_service}
+Make a new factory called `Posts` in `static/javascripts/posts/services/posts.service.js`
 
 Include this file in `javascripts.html`:
 
-    <script type="text/javascript" src="{% static 'javascripts/thoughts/services/thoughts.service.js' %}"></script>
+    <script type="text/javascript" src="{% static 'javascripts/posts/services/posts.service.js' %}"></script>
 
-{x: thoughts_service_include_javascripts}
-Include `thoughts.service.js` in `javascripts.html`
+{x: posts_service_include_javascripts}
+Include `posts.service.js` in `javascripts.html`
 
 This code should look pretty familiar. It is very similar to the services we created before.
 
-The `Thoughts` service only has two methods for now: `all` and `create`.
+The `Posts` service only has two methods: `all` and `create`.
 
-On the index page, we will use `Thoughts.all()` to get the list of objects we want to display. We will also use `Thoughts.create()` to let users add their own thoughts.
+On the index page, we will use `Posts.all()` to get the list of objects we want to display. We will use `Posts.create()` to let users add their own posts.
 
-## IndexController
-Now that we can transport `Thought` data from the server to the client, let's start adding some content to the index page. This will involve creating an `IndexController` to handle fetching data when the page is loaded. After that we will create some directives for displaying the data properly.
+## Making an interface for the index page
+Create `static/templates/layout/index.html` with the following contents:
 
-Create a file in `static/javascripts/static/controllers/` called `index.controller.js` and add the following:
+    <posts posts="vm.posts" ng-show="vm.posts && vm.posts.length"></posts>
 
-    angular.module('borg.static.controllers')
-      .controller('IndexController', function ($scope, Authentication, Snackbar, Thoughts) {
-        $scope.isAuthenticated = !!Authentication.getAuthenticatedUser();
-
-        Thoughts.all().then(
-          function (data, status, headers, config) {
-            $scope.thoughts = data.data;
-          },
-          function (data, status, headers, config) {
-            Snackbar.snackbar('ERROR: ' + data.error, {
-              timeout: 3000
-            });
-          }
-        );
-
-        $scope.$on('thought.created', function (e, thought) {
-          $scope.thoughts.unshift(thought);
-          $scope.thoughts = $scope.thoughts.slice(0);
-        });
-
-        $scope.$on('thought.created.error', function () {
-          $scope.thoughts.shift();
-          $scope.thoughts = $scope.thoughts.slice(0);
-        });
-      });
-
-{x: index_controller}
-Create the `IndexController` controller
-
-Include this file in `javascripts.html`:
-
-    <script type="text/javascript" src="{% static 'javascripts/static/controllers/index.controller.js' %}"></script>
-
-{x: index_controller_include_javascripts}
-Include `index.controller.js` in `javascripts.html`
-
-Let's touch on a few things here.
-
-    $scope.isAuthenticated = !!Authentication.getAuthenticatedUser();
-
-In one of the templates we will create soon, we will add a button that lets the user create a new post. We should only allow a user to create a post if they are authenticated. Because all we need to know about the user is whether they are authenticated, we don't actually need the result of `Authentication.getAuthenticatedUser()`. 
-
-If you remember, `getAuthenticatedUser` will return the user if they are authenticated and `undefined` if they aren't. Using `!!` turns any value into a boolean (true or false) using the values "truthiness". For example, `undefined` is "false-y" in JavaScript. Because of this, `!undefined` is `true`, but this is the negative value of `undefined` -- the opposite of what we want. Negating this value again we get the positive value, `!!undefined` or `false`. This is what we will use in our template to decide whether we are going to show the button to create a new post.
-
-    $scope.$on('thought.created', function (e, thought) {
-      $scope.thoughts.unshift(thought);
-      $scope.thoughts = $scope.thoughts.slice(0);
-    });
-
-Later, when we get around to creating a new post, we will fire off an event called `post.created` when the user creates a post. By catching this event here, we can add this new thought to the front of the `$scope.thoughts` array. This will prevent us from having to make an extra API request to the server for updated data. We will talk about this more shortly, but for now you should know that we do this to increase the *perceived* performance of our application.
-
-As you will see in a few minutes, we are going to watch `$scope.thoughts` for changes. Because of the way `$scope.$watch` works in Angular, we need to make `$scope.thoughts` point to a copy of itself to avoid the cost of deep-watching. This is an expensive, albeit acceptable trade off.
-
-    $scope.$on('thought.created.error', function () {
-      $scope.thoughts.shift();
-      $scope.thoughts = $scope.thoughts.slice(0);
-    });
-
-Analogous to the previous event listener, this one will remove the post at the front of `$scope.thoughts` if the API request returns an error status code.
-
-## Index template
-The template for the index page is just about as short as you could want. We will go into more detail in a moment we create our first directive.
-
-Create `static/templates/static/index.html` with the following contents:
-
-    <thoughts thoughts="thoughts"></thoughts>
+    <a class="btn btn-primary btn-fab btn-raised mdi-content-add btn-add-new-post"
+      href="javascript:void(0)"
+      ng-show="vm.isAuthenticated"
+      ng-dialog="/static/templates/thoughts/new-thought.html"
+      ng-dialog-controller="NewPostController as vm"></a>
 
 {x: index_template}
 Create the index template
 
-Yep. That's all. I told you there wasn't much to it. We will add a little more later, but not much. Most of what we need will be in the template we create for the thoughts directive next.
+We will add a little more later, but not much. Most of what we need will be in the template we create for the posts directive next.
 
-## Posts directive
-Directives are widely considered to be one of the more difficult concepts in AngularJS. Personally, I attribute this to what I consider a sub-optimal API. You'll see what I mean in a moment.
+The anchor tag in this snippet uses the `ngDialog` directive we included as a dependency earlier to show a modal when the user wants to submit a new post.
 
-Create `static/javascripts/thoughts/directives/thoughts.directive.js` with the following contents:
+## Controlling the index interface with IndexController
+Create a file in `static/javascripts/layout/controllers/` called `index.controller.js` and add the following:
 
-    angular.module('borg.thoughts.directives')
-      .directive('thoughts', function () {
-        return {
-          controller: 'ThoughtsController',
-          scope: {
-            thoughts: '='
-          },
-          restrict: 'E',
-          templateUrl: '/static/templates/thoughts/thoughts.html' 
-        };
-      });
+    /**
+    * IndexController
+    * @namespace thinkster.layout.controllers
+    */
+    (function () {
+      'use strict';
 
-{x: thoughts_directive}
-Create a `thoughts` directive
+      angular
+        .module('thinkster.layout.controllers')
+        .controller('IndexController', IndexController);
+
+      IndexController.$inject = ['$scope', 'Authentication', 'Posts', 'Snackbar'];
+
+      /**
+      * @namespace IndexController
+      */
+      function IndexController($scope, Authentication, Posts, Snackbar) {
+        var vm = this;
+
+        vm.isAuthenticated = Authentication.isAuthenticated();
+        vm.posts = [];
+
+        activate();
+
+        /**
+        * @name activate
+        * @desc Actions to be performed when this controller is instantiated
+        * @memberOf thinkster.layout.controllers.IndexController
+        */
+        function activate() {
+          Posts.all().then(postsSuccessFn, postsErrorFn);
+
+          $scope.$on('post.created', function (event, post) {
+            vm.posts.unshift(post);
+          });
+
+          $scope.$on('post.created.error', function () {
+            vm.posts.shift();
+          });
+
+
+          /**
+          * @name postsSuccessFn
+          * @desc Update thoughts array on view
+          */
+          function postsSuccessFn(data, status, headers, config) {
+            vm.posts = data.data;
+          }
+
+
+          /**
+          * @name postsErrorFn
+          * @desc Show snackbar with error
+          */
+          function postsErrorFn(data, status, headers, config) {
+            Snackbar.error(data.error);
+          }
+        }
+      }
+    })();
+
+{x: index_controller}
+Make a new controller called `IndexController` in `static/javascripts/layout/controllers/index.controller.js`
 
 Include this file in `javascripts.html`:
 
-    <script type="text/javascript" src="{% static 'javascripts/thoughts/directives/thoughts.directive.js' %}"></script>
+    <script type="text/javascript" src="{% static 'javascripts/layout/controllers/index.controller.js' %}"></script>
 
-{x: thoughts_directive_include_js}
-Include `thoughts.directive.js` in `javascripts.html`
+{x: index_controller_include_javascripts}
+Include `index.controller.js` in `javascripts.html`
+
+Let's touch on a couple of things here.
+
+    $scope.$on('post.created', function (event, post) {
+      vm.posts.unshift(post);
+    });
+
+Later, when we get around to creating a new post, we will fire off an event called `post.created` when the user creates a post. By catching this event here, we can add this new thought to the front of the `vm.posts` array. This will prevent us from having to make an extra API request to the server for updated data. We will talk about this more shortly, but for now you should know that we do this to increase the *perceived* performance of our application.
+
+    $scope.$on('post.created.error', function () {
+      vm.posts.shift();
+    });
+
+Analogous to the previous event listener, this one will remove the post at the front of `vm.posts` if the API request returns an error status code.
+
+## Making a route for the index page
+With a controller and template in place, we need to set up a route for the index page.
+
+Open `static/javascripts/thinkster.routes.js` and add the following route:
+
+    .when('/', {
+      controller: 'IndexController',
+      controllerAs: 'vm',
+      templateUrl: '/static/templates/layout/index.html'
+    })
+
+{x: index_route}
+Add a route to `thinkster.routes.js` for the `/` path
+
+## Making a directive for displaying Posts
+Create `static/javascripts/posts/directives/posts.directive.js` with the following contents:
+
+    /**
+    * Posts
+    * @namespace thinkster.posts.directives
+    */
+    (function () {
+      'use strict';
+
+      angular
+        .module('thinkster.posts.directives')
+        .directive('posts', posts);
+
+      /**
+      * @namespace Posts
+      */
+      function posts() {
+        /**
+        * @name directive
+        * @desc The directive to be returned
+        * @memberOf thinkster.posts.directives.Posts
+        */
+        var directive = {
+          controller: 'PostsController',
+          controllerAs: 'vm',
+          restrict: 'E',
+          scope: {
+            posts: '='
+          },
+          templateUrl: '/static/templates/thoughts/thoughts.html'
+        };
+
+        return directive;
+      }
+    })();
+
+{x: posts_directive}
+Make a new directive called `posts` in `static/javascripts/posts/directives/posts.directive.js`
+
+Include this file in `javascripts.html`:
+
+    <script type="text/javascript" src="{% static 'javascripts/posts/directives/posts.directive.js' %}"></script>
+
+{x: posts_directive_include_js}
+Include `posts.directive.js` in `javascripts.html`
 
 There are two parts of the directives API that I want to touch on: `scope` and `restrict`.
 
@@ -192,103 +305,174 @@ There are two parts of the directives API that I want to touch on: `scope` and `
 
 `scope` defines the scope of this directive, similar to how `$scope` works for controllers. The difference is that, in a controller, a new scope is implicitly created. For a directive, we have the option of explicitly defining our scopes and that's what we do here.
 
-The second line, `thoughts: '='` simply means that we want to set `$scope.thoughts` to the value passed in through the `thoughts` attribute in the template that we made earlier.
+The second line, `posts: '='` simply means that we want to set `$scope.posts` to the value passed in through the `posts` attribute in the template that we made earlier.
 
     restrict: 'E',
 
-`restrict` tells Angular how we are allowed to use this directive. In our case, we set the value of `restrict` to `E` (for element) which means Angular should only match the name of our directive with the name of an element: `<thoughts></thoughts>`. 
+`restrict` tells Angular how we are allowed to use this directive. In our case, we set the value of `restrict` to `E` (for element) which means Angular should only match the name of our directive with the name of an element: `<posts></posts>`. 
 
 Another common option is `A` (for attribute), which tells Angular to only match the name of the directive with the name of an attribute. `ngDialog` uses this option, as we will see shortly.
 
-## PostsController
+## Controller the posts directive with PostsController
 The directive we just created requires a controller called `PostsController`. 
 
-Create `static/javascripts/thoughts/controllers/posts.controller.js` with the following content:
+Create `static/javascripts/posts/controllers/posts.controller.js` with the following content:
 
-    angular.module('borg.thoughts.controllers')
-      .controller('ThoughtsController', function ($scope) {
-       $scope.nodes = [];
+    /**
+    * PostsController
+    * @namespace thinkster.posts.controllers
+    */
+    (function () {
+      'use strict';
 
-        var calculateNumberOfColumns = function () {
+      angular
+        .module('thinkster.posts.controllers')
+        .controller('PostsController', PostsController);
+
+      PostsController.$inject = ['$scope'];
+
+      /**
+      * @namespace PostsController
+      */
+      function PostsController($scope) {
+        var vm = this;
+
+        vm.columns = [];
+
+        activate();
+
+
+        /**
+        * @name activate
+        * @desc Actions to be performed when this controller is instantiated
+        * @memberOf thinkster.posts.controllers.PostsController
+        */
+        function activate() {
+          $scope.$watchCollection(function () { return $scope.posts; }, render);
+          $scope.$watch(function () { return $(window).width(); }, render);
+        }
+        
+
+        /**
+        * @name calculateNumberOfColumns
+        * @desc Calculate number of columns based on screen width
+        * @returns {Number} The number of columns containing Posts
+        * @memberOf thinkster.posts.controllers.PostsControllers
+        */
+        function calculateNumberOfColumns() {
           var width = $(window).width();
 
-          if (width >= 1200) { return 4; } 
-          else if (width >= 992) { return 3; } 
-          else if (width >= 768) { return 2; } 
-      
-          return 1;
-        };
+          if (width >= 1200) {
+            return 4;
+          } else if (width >= 992) {
+            return 3;
+          } else if (width >= 768) {
+            return 2;
+          } else {
+            return 1;
+          }
+        }
 
-        var getSmallestNode = function () {
-          var scores = $scope.nodes.map(function (node) {
-            var sum = function (a, b) { return a + b; };
 
-            var lengths = node.map(function (element) {
+        /**
+        * @name approximateShortestColumn
+        * @desc An algorithm for approximating which column is shortest
+        * @returns The index of the shortest column
+        * @memberOf thinkster.posts.controllers.PostsController
+        */
+        function approximateShortestColumn() {
+          var scores = vm.columns.map(columnMapFn);
+
+          return scores.indexOf(Math.min.apply(this, scores));
+
+          
+          /**
+          * @name columnMapFn
+          * @desc A map function for scoring column heights
+          * @returns The approximately normalized height of a given column
+          */
+          function columnMapFn(column) {
+            var lengths = column.map(function (element) {
               return element.content.length;
             });
 
-            return lengths.reduce(sum, 0) * node.length;
-          });
+            return lengths.reduce(sum, 0) * column.length;
+          }
 
-          return scores.indexOf(
-            Math.min.apply(this, scores)
-          );
-        };
 
-        var render = function (newValue, oldValue) {
-          if (newValue !== oldValue) {
-            var thoughts = newValue;
+          /**
+          * @name sum
+          * @desc Sums two numbers
+          * @params {Number} m The first number to be summed
+          * @params {Number} n The second number to be summed
+          * @returns The sum of two numbers
+          */
+          function sum(m, n) {
+            return m + n;
+          }
+        }
 
-            $scope.nodes = [];
 
-            var numberOfColumns = calculateNumberOfColumns();
+        /**
+        * @name render
+        * @desc Renders Posts into columns of approximately equal height
+        * @param {Array} current The current value of `vm.posts`
+        * @param {Array} original The value of `vm.posts` before it was updated
+        * @memberOf thinkster.posts.controllers.PostsController
+        */
+        function render(current, original) {
+          if (current !== original) {
+            vm.columns = [];
 
-            for (var i = 0; i < numberOfColumns; ++i) {
-              $scope.nodes.push([]);
+            for (var i = 0; i < calculateNumberOfColumns(); ++i) {
+              vm.columns.push([]);
             }
 
-            for (var i = 0; i < thoughts.length; ++i) {
-              var node = getSmallestNode();
+            for (var i = 0; i < current.length; ++i) {
+              var column = approximateShortestColumn();
 
-              $scope.nodes[node].push(thoughts[i]);
+              vm.columns[column].push(current[i]);
             }
           }
-        };
-
-
-        $scope.$watch(function () { return $scope.thoughts; }, render);
-        $scope.$watch(function () { return $(window).width(); }, render);
-      });
+        }
+      }
+    })();
 
 {x: posts_controller}
-Create a `PostsController` controller
+Make a new controller called `PostsController` in `static/javascripts/posts/controllers/posts.controller.js`
 
 Include this file in `javascripts.html`:
 
-    <script type="text/javascript" src="{% static 'javascripts/thoughts/controllers/thoughts.controller.js' %}"></script>
+    <script type="text/javascript" src="{% static 'javascripts/posts/controllers/posts.controller.js' %}"></script>
 
 {x: posts_controller_include_js}
 Include `posts.controller.js` in `javascripts.html`
 
 It isn't worth taking the time to step through this controller line-by-line. Suffice it to say that this controller presents an algorithm for ensuring the columns of posts are of approximately equal height.
 
-## Posts template
+The only thing worth mentioning here is this line:
+
+    $scope.$watchCollection(function () { return $scope.posts; }, render);
+
+Because we do not have direct access to the ViewModel that `posts` is stored on, we watch `$scope.posts` instead of `vm.posts`. Furthermore, we use `$watchCollection` here because `$scope.posts` is an array. `$watch` watches the object's reference, not it's actual value. `$watchCollection` watches the value of an array from changes. If we used `$watch` here instead of `$watchCollection`, the changes caused by `$scope.posts.shift()` and `$scope.posts.unshift()` would not trigger the watcher.
+
+## Making a template for the posts directive
 In our directive we defined a `templateUrl` that doesn't match any of our existing templates. Let's go ahead and make a new one.
 
-Create `static/templates/thoughts/thoughts.html` with the following content:
+Create `static/templates/posts/posts.html` with the following content:
 
     <div class="row" ng-cloak>
-      <div ng-repeat="node in nodes" ng-show="thoughts && thoughts.length">
+      <div ng-repeat="column in vm.columns">
         <div class="col-xs-12 col-sm-6 col-md-4 col-lg-3">
-          <div ng-repeat="thought in node">
-            <thought thought="thought"></thought>
+          <div ng-repeat="post in column">
+            <post post="post"></post>
           </div>
         </div>
       </div>
 
-      <div ng-hide="thoughts && thoughts.length">
-        <div class="col-sm-12" style="text-align: center;">
-          <em>The Borg has no thoughts.</em>
+      <div ng-hide="vm.columns && vm.columns.length">
+        <div class="col-sm-12 no-posts-here">
+          <em>The are no posts here.</em>
         </div>
       </div>
     </div>
@@ -299,53 +483,76 @@ Create a template for the `posts` directive
 A few things worth noting:
 
 1. We use the `ng-cloak` directive to prevent flashing since this directive will be used on the first page loaded.
-2. We will need to create a `thought` directive for rendering each individual post.
+2. We will need to create a `post` directive for rendering each individual post.
 3. If no thoughts are present, we render a message informing the user.
 
-## Post directive
+## Making a directive for displaying a single Post
 In the template for the posts directive, we use another directive called `post`. Let's create that.
 
-Create `static/javascripts/thoughts/directives/thought.directive.js` with the following content:
+Create `static/javascripts/posts/directives/post.directive.js` with the following content:
 
-    angular.module('borg.thoughts.directives')
-      .directive('thought', function () {
-        return {
-          scope: {
-            thought: '='
-          },
+    /**
+    * Post
+    * @namespace thinkster.posts.directives
+    */
+    (function () {
+      'use strict';
+
+      angular
+        .module('thinkster.posts.directives')
+        .directive('post', post);
+
+      /**
+      * @namespace Post
+      */
+      function post() {
+        /**
+        * @name directive
+        * @desc The directive to be returned
+        * @memberOf thinkster.posts.directives.Post
+        */
+        var directive = {
           restrict: 'E',
+          scope: {
+            post: '='
+          },
           templateUrl: '/static/templates/thoughts/thought.html'
         };
-      });
+
+        return directive;
+      }
+    })();
 
 {x: post_directive}
-Create a `post` directive
+Make a new directive called `post` in `static/javascripts/posts/directives/post.directive.js`
 
 Include this file in `javascripts.html`:
 
-    <script type="text/javascript" src="{% static 'javascripts/thoughts/directives/thought.directive.js' %}"></script>
+    <script type="text/javascript" src="{% static 'javascripts/posts/directives/post.directive.js' %}"></script>
 
 {x: post_directive_include_js}
 Include `post.directive.js` in `javascripts.html`
 
 There is nothing new worth discussing here. This directive is almost identical to the previous one. The only difference is we use a different template.
 
-## Post template
+## Making a template for the post directive
 Like we did for the `posts` directive, we now need to make a template for the `post` directive.
 
-Create `static/templates/thoughts/thought.html` with the following content:
+Create `static/templates/posts/post.html` with the following content:
 
     <div class="row">
       <div class="col-sm-12">
-        <div class="well thought">
-          <div class="thought__meta">
-            <a href="/+{{ thought.author.username }}">
-              +{{ thought.author.username }}
-            </a>
-          </div>
+        <div class="well">
+          <div class="post">
+            <div class="post__meta">
+              <a href="/+{{ post.author.username }}">
+                +{{ post.author.username }}
+              </a>
+            </div>
 
-          <div class="thoguht__content">
-            {{ thought.content }}
+            <div class="post__content">
+              {{ post.content }}
+            </div>
           </div>
         </div>
       </div>
@@ -354,17 +561,30 @@ Create `static/templates/thoughts/thought.html` with the following content:
 {x: post_template}
 Create a template for the `post` directive
 
-There are a few special CSS classes here that we will address later, but that's about it.
+## Some quick CSS
+We want to add a few simple styles to make our posts look better. Open `static/stylesheets/styles.css` and add the following:
 
-## Index route
-Now that we have all of our services and directives ready to go, let's specify the controller and template for the the index route.
+    .btn-add-new-post {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+    }
 
-Open `static/javascripts/borg.routes.js` and add the following route:
+    .no-posts-here {
+      text-align: center;
+    }
 
-    .when('/', {
-      controller: 'IndexController',
-      templateUrl: '/static/templates/static/index.html'
-    })
+    .post {}
 
-{x: index_route}
-Add a route to `borg.routes.js` for the `/` path
+    .post .post__meta {
+      font-weight: bold;
+      text-align: right;
+      padding-bottom: 19px;
+    }
+
+    .post .post__meta a:hover {
+      text-decoration: none;
+    }
+
+{x: post_css}
+Add some CSS to `static/stylesheets/style.css` to make our posts look better
