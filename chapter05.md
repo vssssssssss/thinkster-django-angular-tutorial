@@ -150,7 +150,7 @@ While you have `templates/navbar.html` open, go ahead and find the logout link a
 {x: angularjs_navbar_template_update}
 Update `navbar.html` to include the `ng-controller` and `ng-click` directives where appropriate
 
-## Logout: AngularJS Modules
+## Layout modules
 We need to add a few new modules this time around.
 
 Create a file in `static/javascripts/layout/` called `layout.module.js` and give it the following contents:
@@ -181,7 +181,7 @@ And don't forget to update `static/javascripts/thinkster.js` also:
 {x: angularjs_static_module}
 Define new `thinkster.layout` and `thinkster.layout.controllers` modules
 
-## Logout: Include new .js files
+## Including new .js files
 This time around there are a couple new JavaScript files to include. Open up `javascripts.html` and add the following:
 
     <script type="text/javascript" src="{% static 'javascripts/layout/layout.module.js' %}"></script>
