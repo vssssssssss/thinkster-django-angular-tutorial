@@ -9,7 +9,7 @@ In this tutorial you will build a simplified Google+ clone called “Not Google 
  4.  [Registering new users](chapter03.md) **FINAL**
  5.  [Logging users in](chapter04.md) **FINAL**
  6.  [Logging users out](chapter05.md) **FINAL**
- 7.  [Modeling the Borg's Thoughts](chapter06.md)
+ 7.  [Making a Post model](chapter06.md) **FINAL**
  8.  [Rendering the Borg's Thoughts](chapter07.md)
  9.  [Creating new posts](chapter08.md)
  10. [User profiles](chapter09.md)

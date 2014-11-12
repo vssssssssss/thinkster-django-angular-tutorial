@@ -1,25 +1,23 @@
-# Modeling the Borg's Thoughts
-In this chapter we will make a new app and create a `Thought` model similar to a status on Facebook or a tweet on Twitter. After we create our model we will move on to serializing `Thought`s and then we will create a few new endpoints for our API.
+# Making a Post model
+In this section we will make a new app and create a `Post` model similar to a status on Facebook or a tweet on Twitter. After we create our model we will move on to serializing `Post`s and then we will create a few new endpoints for our API.
 
-Why waste time? Let's jump right in.
+## Making a posts app
+First things first: go ahead and create a new app called `posts`.
 
-## App
-First things first: go ahead and create a new app called `thoughts`.
+    $ python manage.py start app posts
 
-    $ python manage.py start app thoughts
-
-{x: django_app_thoughts}
-Create a new app named `thoughts`
+{x: django_app_posts}
+Make a new app named `posts`
 
 Remember: whenever you create a new app you have to add it to the `INSTALLED_APPS` setting. Open `thinkster_django_angular_boilerplate/settings.py` and modify it like so:
 
     INSTALLED_APPS = (
         # ...
-        'thoughts',
+        'posts',
     )
 
-## What does the Thought model look like?
-When you created the `thoughts` app Django made a new file called `thoughts/models.py`. Go ahead and open it up and add the following:
+## Making the Post model
+After you create the `posts` app Django made a new file called `posts/models.py`. Go ahead and open it up and add the following:
 
     from django.db import models
     from django.db.models.signals import pre_delete
@@ -28,7 +26,7 @@ When you created the `thoughts` app Django made a new file called `thoughts/mode
     from authentication.models import UserProfile
 
 
-    class Thought(models.Model):
+    class Post(models.Model):
         author = models.ForeignKey(UserProfile)
         content = models.TextField()
 
@@ -39,67 +37,67 @@ When you created the `thoughts` app Django made a new file called `thoughts/mode
             return '{0}'.format(self.content)
 
         @receiver(pre_delete, sender=UserProfile)
-        def delete_thoughts_for_account(sender, instance=None, **kwargs):
+        def delete_thoughts_for_profile(sender, instance=None, **kwargs):
             if instance:
-                thoughts = Thought.objects.filter(author=instance)
-                thoughts.delete()
+                posts = Post.objects.filter(author=instance)
+                posts.delete()
 
-{x: django_model_thought}
-Create a `Thought` model
+{x: django_model_post}
+Make a new model called `Post` in `posts/models.py`
 
 Our method of walking through the code line-by-line is working well so far. Why mess with a good thing? Let's do it.
 
     author = models.ForeignKey(UserProfile)
 
-When we created the `UserProfile` model we associated each `UserProfile` with a `User`. This is called a one-to-one relationship. Because each user can have a number of `Thought`s, we want to set up a different kind of relationship: a many-to-one.
+When we created the `UserProfile` model we associated each `UserProfile` with a `User`. This is called a one-to-one relationship. Because each user can have a number of `Post`s, we want to set up a different kind of relationship: a many-to-one.
 
-The way to do this in Django is with using a `ForeignKey` field to associate each `Thought` with a `UserProfile`. 
+The way to do this in Django is with using a `ForeignKey` field to associate each `Post` with a `UserProfile`. 
 
-Django is smart enough to know the foreign key we've set up here should be reversible. That is to say, given a `UserProfile`, you should be able to access that user's `Thought`s. In Django these `Thought` objects can be accessed through `UserProfile.thought_set` (not `UserProfile.thoughts`).
+Django is smart enough to know the foreign key we've set up here should be reversible. That is to say, given a `UserProfile`, you should be able to access that user's `Post`s. In Django these `Post` objects can be accessed through `UserProfile.post_set` (not `UserProfile.posts`).
 
-    @receiver(pre_delete, sender=UserProfile)
+    receiver(pre_delete, sender=UserProfile)
     def delete_thoughts_for_profile(sender, instance=None, **kwargs):
         if instance:
-            thoughts = Thought.objects.filter(author=instance)
-            thoughts.delete()
+            posts = Post.objects.filter(author=instance)
+            posts.delete()
 
-This `pre_delete` hook is similar to the one we set up for `UserProfile`. The difference this time is that we delete the `Thought` objects associated with a `UserProfile` before the `UserProfile` is deleted.
+This `pre_delete` hook is similar to the one we set up for `UserProfile`. The difference this time is that we delete the `Post` objects associated with a `UserProfile` before the `UserProfile` is deleted.
 
-It's interesting to note that this creates a sort of chain. Before a `User` is deleted, the associated `UserProfile` is deleted. Before a `UserProfile` is deleted, the associated `Thought` objects are deleted.
+It's interesting to note that this creates a sort of chain. Before a `User` is deleted, the associated `UserProfile` is deleted. Before a `UserProfile` is deleted, the associated `Post` objects are deleted.
 
 Now that the model exists, don't forget to migrate.
 
     $ python manage.py makemigrations
     $ python manage.py migrate
 
-{x: django_model_thought_migrate}
-Create migrations for `Thought` and apply them
+{x: django_model_post_migrate}
+Make migrations for `Post` and apply them
 
-## Serializing the Thought model
-Create a new file in `thoughts/` called `serializers.py` and add the following:
+## Serializing the Post model
+Create a new file in `posts/` called `serializers.py` and add the following:
 
     from rest_framework import serializers
 
     from authentication.serializers import UserProfileSerializer
-    from thoughts.models import Thought
+    from posts.models import Post
 
 
-    class ThoughtSerializer(serializers.ModelSerializer):
+    class PostSerializer(serializers.ModelSerializer):
         author = UserProfileSerializer(required=False)
 
         class Meta:
-            model = Thought
+            model = Post
 
             fields = ('id', 'author', 'content', 'created_at', 'updated_at')
-            read_only_fields = ('id', 'author', 'created_at', 'updated_at')
+            read_only_fields = ('id', 'created_at', 'updated_at')
 
         def get_validation_exclusions(self, *args, **kwargs):
-            exclusions = super(ThoughtSerializer, self).get_validation_exclusions()
+            exclusions = super(PostSerializer, self).get_validation_exclusions()
 
             return exclusions + ['author']
 
-{x: django_serializer_thoughtserializer}
-Create a serializer called `ThoughtSerializer`
+{x: django_serializer_postserializer}
+Make a new serializer called `PostSerializer` in `posts/serializers.py`
 
 There isn't much here that's new, but there is one line in particular I want to look at.
 
@@ -107,46 +105,46 @@ There isn't much here that's new, but there is one line in particular I want to 
 
 We explicitly defined a number of fields in our `UserProfileSerializer` from before, but this definition is a little different.
 
-When serializing a `Thought` object, we want to include all of the author's information. Within Django REST Framework, this is known as a nested relationship. Basically, we are serializing the `UserProfile` related to this `Thought` and including it in our JSON.
+When serializing a `Post` object, we want to include all of the author's information. Within Django REST Framework, this is known as a nested relationship. Basically, we are serializing the `UserProfile` related to this `Post` and including it in our JSON.
 
 We pass `required=False` here because we will set the author of this post automatically.
 
-     def get_validation_exclusions(self, *args, **kwargs):
-          exclusions = super(ThoughtSerializer, self).get_validation_exclusions()
+    def get_validation_exclusions(self, *args, **kwargs):
+        exclusions = super(PostSerializer, self).get_validation_exclusions()
 
-          return exclusions + ['author']
+        return exclusions + ['author']
 
 For the same reason we use `required=False`, we must also add `author` to the list of validations we wish to skip.
 
 At this point, feel free to open up your shell with `python manage.py shell` and play around with creating and serializing `Thought` objects.
 
     >>> from authentication.models import UserProfile
-    >>> from thoughts.models import Thought
-    >>> from thoughts.serializers import ThoughtSerializer
+    >>> from posts.models import Post
+    >>> from posts.serializers import PostSerializer
     >>> u = UserProfile.objects.get(pk=1)
-    >>> t = Thought.objects.create(author=u, content='You will be assimilated!')
-    >>> s = ThoughtSerializer(t)
+    >>> p = Post.objects.create(author=u, content='I promise this is not Google Plus!')
+    >>> s = PostSerializer(p)
     >>> s.data
 
-{x: django_shell_thought}
-Play around with the `Thought` model and `ThoughtSerializer` serializer in Django's shell
+{x: django_shell_post}
+Play around with the `Post` model and `PostSerializer` serializer in Django's shell
 
-## API Views
-The next step in creating `Thought` objects is adding an API endpoint that will handle performing actions on the `Thought` model such as create or update.
+## Making API views for Post objects
+The next step in creating `Post` objects is adding an API endpoint that will handle performing actions on the `Post` model such as create or update.
 
-Replace the contents of `thoughts/views.py` with the following:
+Replace the contents of `posts/views.py` with the following:
 
     from rest_framework import generics, permissions
 
     from authentication.models import UserProfile
-    from thoughts.models import Thought
-    from thoughts.permissions import IsAuthenticatedAndOwnsObject
-    from thoughts.serializers import ThoughtSerializer
+    from posts.models import Post
+    from posts.permissions import IsAuthenticatedAndOwnsObject
+    from posts.serializers import PostSerializer
 
 
-    class ThoughtListCreateView(generics.ListCreateAPIView):
-        queryset = Thought.objects.order_by('-created_at')
-        serializer_class = ThoughtSerializer
+    class PostListCreateView(generics.ListCreateAPIView):
+        queryset = Post.objects.order_by('-created_at')
+        serializer_class = PostSerializer
 
         def get_permissions(self):
             if self.request.method == 'POST':
@@ -155,71 +153,66 @@ Replace the contents of `thoughts/views.py` with the following:
 
         def pre_save(self, obj):
             obj.author = UserProfile.objects.get(user=self.request.user)
-            return super(ThoughtListCreateView, self).pre_save(obj)
+            return super(PostListCreateView, self).pre_save(obj)
 
 
-    class ThoughtRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
-        queryset = Thought.objects.all()
-        serializer_class = ThoughtSerializer
+    class PostRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
+        queryset = Post.objects.all()
+        serializer_class = PostSerializer
 
         def get_permissions(self):
             if self.request.method not in permissions.SAFE_METHODS:
                 return (IsAuthenticatedAndOwnsObject(),)
             return (permissions.AllowAny(),)
 
-{x: django_view_thought_listcreate}
-Create a view for listing and creating `Thought` objects
+{x: django_view_post_listcreate}
+Make a view for listing and creating `Post` objects
 
-{x: django_view_thought_retrieveupdatedestroy}
-Create a view for reading, updating and destroying `Thought` objects
-
+{x: django_view_post_retrieveupdatedestroy}
+Make a view for reading, updating, and destroying `Post` objects
 
 Do these views look similar? They aren't that different than the ones we made to create `User` objects.
 
     def pre_save(self, obj):
         obj.author = UserProfile.objects.get(user=self.request.user)
-        return super(ThoughtListCreateView, self).pre_save(obj)
+        return super(PostListCreateView, self).pre_save(obj)
 
-When a `Thought` object is created it has to be associated with an author. Making the author type in their own username or id when creating adding a thought to the site would be a bad experience, so we handle this association for them.
+`pre_save` is a method provided by the mixins used in `generics.ListCreateAPIView` (which we inherit from) that is called before an object is saved and that can be overridden. 
 
-`pre_save` is a method provided by the mixins used in `generics.ListCreateAPIView` (which we inherit from) that can be overridden. 
-
-We take advantage of this feature to look up the currently logged in user's `UserProfile` and then use that profile as the `author` attribute for the `Thought` we are creating.
+When a `Post` object is created it has to be associated with an author. Making the author type in their own username or id when creating adding a thought to the site would be a bad experience, so we handle this association for them with the `pre_save` hook. We simply grab the user associated with this request and make them the author of this `Post`.
 
     def get_permissions(self):
         if self.request.method == 'POST':
             return (permissions.IsAuthenticated(),)
         return (permissions.AllowAny(),)
 
-Only authenticated users should be allowed to create new `Thought`s. To satisfy this constraint we override `get_permissions`. 
+Only authenticated users should be allowed to create new `Post`s. To satisfy this constraint we override `get_permissions`. 
 
-If the request is a `POST` (the user is trying to create a new `Thought`), then we only allow authenticated users to continue. However, if the request is a `GET` (the only other HTTP verb this view accepts), then we will allow both authenticated and non-authenticated users to continue.
+If the request is a `POST` (the user is trying to create a new `Post` object), then we only allow authenticated users to continue. However, if the request is a `GET` (the only other HTTP verb this view accepts), then we will allow both authenticated and non-authenticated users to continue.
 
-    class ThoughtRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
+    class PostRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
 
-That's quite a long name, huh?
+Even though we create this view and add an endpoint for it, we will not be using it in our application. It is considered good practice to make sure the software interface you implement are complete. For us, that makes being able to create, read, update, destroy, and list `Post` objects. 
 
-Even though we create this view and add an endpoint for it, we will not be using it in our application. It is considered good practice to make sure the software interface you implement are complete. For us, that makes being able to create, read, update, destroy, and list `Thought` objects. 
-
-We include this class to ensure we are providing a complete interface for handling `Thought` objects.
+We include this class to ensure we are providing a complete interface for handling `Post` objects.
 
     def get_permissions(self):
         if self.request.method not in permissions.SAFE_METHODS:
             return (IsAuthenticatedAndOwnsObject(),)
         return (permissions.AllowAny(),)
 
-Similar to the other view, we need to handle the permissions for updating and destroying `Thought`s here.
+Similar to the other view, we need to handle the permissions for updating and destroying `Post`s here.
 
 Django REST Framework provides a list of "safe" HTTP methods -- actions that do not modify data on the server, like `GET`. If the method for this request is not in that list, then we need to satisfy two constraints: the user must be authenticated and they must be own the object they are trying to modify.
 
 `IsAuthenticatedAndOwnsObject` is a permission that we will implement ourselves now.
 
-## Permissions
-Create `permissions.py` in the `thoughts/` directory with the following content:
+## Making the IsAuthenticationAndOwnsObject permission
+Create `permissions.py` in the `posts/` directory with the following content:
 
     from rest_framework import permissions
 
-    from thoughts.models import Thought
+    from posts.models import Post
 
 
     class IsAuthenticatedAndOwnsObject(permissions.BasePermission):
@@ -229,10 +222,10 @@ Create `permissions.py` in the `thoughts/` directory with the following content:
 
             _id = self.kwargs['pk']
 
-            return Thought.objects.filter(id=_id, author_id=request.user).exists()
+            return Post.objects.filter(id=_id, author_id=request.user).exists()
 
 {x: django_permission_isauthenticatedandownsobject}
-Create an `IsAuthenticatedAndOwnsObject` permission
+Make a new permission called `IsAuthenticatedAndOwnsObject` in `posts/permissions.py`
 
 Let's step thought the code.
 
@@ -249,35 +242,32 @@ Remember our first constraint? The user must be authenticated. `is_authenticated
 
     _id = self.kwargs['pk']
 
-Presumably the request includes the `id` of the `Thought` we are modifying. We grab that now to make the next line shorter.
+Presumably the request includes the `id` of the `Post` we are modifying. We grab that now to make the next line shorter.
 
-    return Thought.objects.filter(id=_id, author_id=request.user).exists()
+    return Post.objects.filter(id=_id, author_id=request.user).exists()
 
 This line satisfies our second constraint: the user must own this object. 
 
-What we're doing here is filtering all `Thoughts` for anything matching the id and user provided. The `exists()` method returns `True` if our query found any matches and `False` otherwise.
+What we're doing here is filtering all `Posts` for anything matching the id and user provided. The `exists()` method returns `True` if our query found any matches and `False` otherwise.
 
-## API Endpoints
+## Making an API endpoint for posts
 With the views created, it's time to add the endpoints to our API.
 
 Open `thinkster_django_angular_boilerplate/urls.py` and add the following urls:
 
-    from thoughts.views import ThoughtListCreateView, \
-        ThoughtRetrieveUpdateDestroyView
+    from posts.views import PostListCreateView, \
+        PostRetrieveUpdateDestroyView
 
     urlpatterns = patterns(
         # ...,
-
-        url(r'^api/v1/thoughts/$',
-            ThoughtListCreateView.as_view(), name='thoughts'),
-        url(r'^api/v1/thoughts/(?P<pk>[0-9]+)/$',
-            ThoughtRetrieveUpdateDestroyView.as_view(), name='thought'),
-
+        url(r'^api/v1/posts/$', PostListCreateView.as_view(), name='posts'),
+        url(r'^api/v1/posts/(?P<pk>[0-9]+)/$',
+            PostRetrieveUpdateDestroyView.as_view(), name='post'),
         # ...,
     )
 
-{x: django_url_thought_listcreate}
-Create API endpoint for `ThoughtListCreateView`
+{x: django_url_post_listcreate}
+Make an API endpoint for the `PostListCreateView` view
 
-{x: django_url_thought_retrieveupdatedestroy}
-Create API endpoint for `ThoughtRetrieveUpdateDestroyView`
+{x: django_url_post_retrieveupdatedestroy}
+Make an API endpoint for the `PostRetrieveUpdateDestroyView` view
