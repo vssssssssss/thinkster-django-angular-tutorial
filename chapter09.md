@@ -324,3 +324,9 @@ Open `static/javascripts/thinkster.routes.js` and add the following route:
 
 {x: profile_route}
 Make a route for viewing user profiles
+
+## Checkpoint
+To view your profile, direct your browser to `http://localhost:8000/+<username>`. If the page renders, everything is good!
+
+{x: checkpoint_display_user_profile}
+Visit your profile page at `http://localhost:8000/+<username>`

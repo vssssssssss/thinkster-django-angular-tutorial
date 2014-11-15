@@ -159,3 +159,18 @@ Later on, we will add support for updating a user's email, first name, and last 
     user.save()
 
 When updating a related model, you must also explicitly save it.
+
+## Checkpoint
+By now we should have no problem seeing the serialized JSON of a `User` and `UserProfile`. Open up the Django shell again by running `python manage.py shell` and try typing the following commands:
+
+    >>> from django.contrib.auth.models import User
+    >>> from authentication.models import UserProfile
+    >>> from authentication.serializers import UserSerializer, UserProfileSerializer
+    >>> user = User.objects.get(pk=1)
+    >>> serialized_user = UserSerializer(user)
+    >>> serialized_profile = UserProfileSerializer(user.profile)
+    >>> serialized_user.data
+    >>> serialized_profile.data
+
+{x: checkpoint_auth_serializers}
+Make sure your `UserSerializer` and `UserProfileSerializer` serializers are working

@@ -434,27 +434,8 @@ If you can believe it, we've only created one new JavaScript file since the last
 {x: angularjs_javascripts_login}
 Include `login.controller.js` in `javascripts.html`
 
-## Handling CSRF protection
-Because we are using session-based authentication, we have to worry about CSRF protection. We don't go into detail on CSRF here because it's outside the scope of this tutorial, but suffice it to say that CSRF is very bad.
+## Checkpoint
+Open `http://localhost:8000/login` in your browser and log in with the user you created earlier. If this works, the page should redirect to `http://localhost:8000/` and the navigation bar should change.
 
-Django, by default, stores a CSRF token in a cookie named `csrftoken` and expects a header with the name `X-CSRFToken` for any dangerous HTTP request (`POST`, `PUT`, `PATCH`, `DELETE`). We can easily configure Angular to handle this.
-
-Open up `static/javascripts/thinkster.js` and add the following under your module definitions:
-
-    angular
-      .module('thinkster')
-      .run(run);
-
-    run.$inject = ['$http'];
-
-    /**
-    * @name run
-    * @desc Update xsrf $http headers to align with Django's defaults
-    */
-    function run($http) {
-      $http.defaults.xsrfHeaderName = 'X-CSRFToken';
-      $http.defaults.xsrfCookieName = 'csrftoken';
-    }
-
-{x: angularjs_run_csrf}
-Configure AngularJS CSRF settings
+{x: checkpoint_login}
+Log in with one of the users you created earlier by visiting `http://localhost:8000/login`

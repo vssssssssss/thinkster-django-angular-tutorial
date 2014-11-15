@@ -144,7 +144,7 @@ Making superusers is done from the terminal. After running the following command
 {x: create_superuser}
 Make a new `User` with superadmin access
 
-## Working with Django's shell
+## Checkpoint
 To make sure the receiver we set up before -- the one that creates a `UserProfile` when a `User` is created -- is working properly, let's jump into Django's shell:
 
     $ python manage.py shell

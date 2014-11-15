@@ -104,7 +104,7 @@ Make a file in `static/javascripts/authentication/services/` called `authenticat
           });
         }
       }
-    )();
+    })();
 
 {x: angularjs_authentication_service}
 Make a factory called `Authentication` in `static/javascripts/authentication/services/authentication.service.js`
@@ -261,7 +261,7 @@ Create a file in `static/javascripts` called `thinkster.routes.js` and add the f
       * @desc Define valid application routes
       */
       function config($routeProvider) {
-        $routeProvider..when('/register', {
+        $routeProvider.when('/register', {
           controller: 'RegisterController', 
           controllerAs: 'vm',
           templateUrl: '/static/templates/authentication/register.html'
@@ -418,3 +418,41 @@ Open `templates/javascripts.html` and add the following above the `{% endcompres
 
 {x: django_javascripts}
 Add the new JavaScript files to `templates/javascripts.html`
+
+## Handling CSRF protection
+Because we are using session-based authentication, we have to worry about CSRF protection. We don't go into detail on CSRF here because it's outside the scope of this tutorial, but suffice it to say that CSRF is very bad.
+
+Django, by default, stores a CSRF token in a cookie named `csrftoken` and expects a header with the name `X-CSRFToken` for any dangerous HTTP request (`POST`, `PUT`, `PATCH`, `DELETE`). We can easily configure Angular to handle this.
+
+Open up `static/javascripts/thinkster.js` and add the following under your module definitions:
+
+    angular
+      .module('thinkster')
+      .run(run);
+
+    run.$inject = ['$http'];
+
+    /**
+    * @name run
+    * @desc Update xsrf $http headers to align with Django's defaults
+    */
+    function run($http) {
+      $http.defaults.xsrfHeaderName = 'X-CSRFToken';
+      $http.defaults.xsrfCookieName = 'csrftoken';
+    }
+
+{x: angularjs_run_csrf}
+Configure AngularJS CSRF settings
+
+## Checkpoint
+Try registering a new user by running your server (`python manage.py runserver`), visiting `http://localhost:8000/register` in your browser and filling out the form.
+
+If the registration worked, you can view the last `User` object created by opening the shell (`python manage.py shell`) and running the following commands:
+
+    >>> from django.contrib.auth.models import User
+    >>> User.objects.latest('date_joined')
+
+The `User` object returned should match the one you just created.
+
+{x: checkpoint_register_user}
+Register a new user at `http://localhost:8000/register` and confirm the `User` object was created

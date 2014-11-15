@@ -116,19 +116,6 @@ We pass `required=False` here because we will set the author of this post automa
 
 For the same reason we use `required=False`, we must also add `author` to the list of validations we wish to skip.
 
-At this point, feel free to open up your shell with `python manage.py shell` and play around with creating and serializing `Thought` objects.
-
-    >>> from authentication.models import UserProfile
-    >>> from posts.models import Post
-    >>> from posts.serializers import PostSerializer
-    >>> u = UserProfile.objects.get(pk=1)
-    >>> p = Post.objects.create(author=u, content='I promise this is not Google Plus!')
-    >>> s = PostSerializer(p)
-    >>> s.data
-
-{x: django_shell_post}
-Play around with the `Post` model and `PostSerializer` serializer in Django's shell
-
 ## Making API views for Post objects
 The next step in creating `Post` objects is adding an API endpoint that will handle performing actions on the `Post` model such as create or update.
 
@@ -271,3 +258,19 @@ Make an API endpoint for the `PostListCreateView` view
 
 {x: django_url_post_retrieveupdatedestroy}
 Make an API endpoint for the `PostRetrieveUpdateDestroyView` view
+
+## Checkpoint
+At this point, feel free to open up your shell with `python manage.py shell` and play around with creating and serializing `Thought` objects.
+
+    >>> from authentication.models import UserProfile
+    >>> from posts.models import Post
+    >>> from posts.serializers import PostSerializer
+    >>> profile = UserProfile.objects.get(pk=1)
+    >>> post = Post.objects.create(author=profile, content='I promise this is not Google Plus!')
+    >>> serialized_post = PostSerializer(post)
+    >>> serialized_post.data
+
+{x: checkpoint_create_post}
+Play around with the `Post` model and `PostSerializer` serializer in Django's shell
+
+We will confirm the views are working at the end of the next section.

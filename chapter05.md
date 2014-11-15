@@ -189,3 +189,11 @@ This time around there are a couple new JavaScript files to include. Open up `ja
 
 {x: include_javascript_static}
 Include new JavaScript files in `javascripts.html`
+
+## Checkpoint
+If you visit `http://localhost:8000/` in your browser, you should still be logged in. If not, you will need to log in again.
+
+You can confirm the logout functionality is working by clicking the logout button in the navigation bar. This should refresh the page and update the navigation bar to it's logged out view.
+
+{x: checkpoint_logout}
+Log out of your account by using the logout button in the navigation bar

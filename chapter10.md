@@ -294,4 +294,10 @@ Open up `static/javascripts/thinkster.routes.js` and add the following route:
     })
     // ...
 
+## Checkpoint
 And that's our last feature! You should not be able to load up the settings page at `http://localhost:8000/+:username/settings` and update your settings as you wish.
+
+Try updating your tagline. If it works, you will now see your tagline displayed on your profile page.
+
+{x: checkpoint_update_user_profile}
+Update your tagline and view the new tagline on your profile page

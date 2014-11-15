@@ -135,18 +135,10 @@ Create `static/templates/layout/index.html` with the following contents:
 
     <posts posts="vm.posts" ng-show="vm.posts && vm.posts.length"></posts>
 
-    <a class="btn btn-primary btn-fab btn-raised mdi-content-add btn-add-new-post"
-      href="javascript:void(0)"
-      ng-show="vm.isAuthenticated"
-      ng-dialog="/static/templates/thoughts/new-thought.html"
-      ng-dialog-controller="NewPostController as vm"></a>
-
 {x: index_template}
 Create the index template
 
 We will add a little more later, but not much. Most of what we need will be in the template we create for the posts directive next.
-
-The anchor tag in this snippet uses the `ngDialog` directive we included as a dependency earlier to show a modal when the user wants to submit a new post.
 
 ## Controlling the index interface with IndexController
 Create a file in `static/javascripts/layout/controllers/` called `index.controller.js` and add the following:
@@ -564,12 +556,6 @@ Create a template for the `post` directive
 ## Some quick CSS
 We want to add a few simple styles to make our posts look better. Open `static/stylesheets/styles.css` and add the following:
 
-    .btn-add-new-post {
-      position: fixed;
-      bottom: 20px;
-      right: 20px;
-    }
-
     .no-posts-here {
       text-align: center;
     }
@@ -588,3 +574,11 @@ We want to add a few simple styles to make our posts look better. Open `static/s
 
 {x: post_css}
 Add some CSS to `static/stylesheets/style.css` to make our posts look better
+
+## Checkpoint
+Assuming all is well, you can confirm you're on the right track by loading `http://localhost:8000/` in your browser. You should see the `Post` object you created at the end of the last section!
+
+This also confirms that half of the `PostListCreateView` from the last section is working.
+
+{x: checkpoint_render_posts}
+Visit `http://localhost:8000/` and confirm the `Post` object you made earlier is shown.

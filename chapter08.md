@@ -139,3 +139,9 @@ If the error callback is triggered, then we will broadcast a new event: `post.cr
     $scope.closeThisDialog();
 
 This is a method provided by `ngDialog`. All it does is close the model we have open. It's also worth nothing that `closeThisDialog()` is not stored on the ViewModel, so we must call `$scope.closeThisDialog()` instead of `vm.closeThisDialog()`.
+
+## Checkpoint
+Visit `http://localhost:8000/` and click the + button in the bottom-right corner. Fill out this form to create a new post. You will know everything worked because the new post will be displayed at the top of the page.
+
+{x: checkpoint_new_post}
+Create a new `Post` object via the interface you've just created
