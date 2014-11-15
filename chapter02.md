@@ -142,7 +142,7 @@ As mentioned in an earlier note, `UserProfile` does not have an `id` attribute b
     first_name = serializers.CharField(source='user.first_name', required=False)
     last_name = serializers.CharField(source='user.last_name', required=False)
 
-When we serializer a `UserProfile` object, we want to include information about the related `User`. After all, the whole point of `UserProfile` is to *extend* `User`. Django REST Framework allows us to do this by specifying which fields of the related model we want to include. Here we have chosen `username`, `email`, `first_name` and `last_name`.
+When we serialize a `UserProfile` object, we want to include information about the related `User`. After all, the whole point of `UserProfile` is to *extend* `User`. Django REST Framework allows us to do this by specifying which fields of the related model we want to include. Here we have chosen `username`, `email`, `first_name` and `last_name`.
 
 These are the explicitly defined fields I mentioned earlier. Each field accepts a `source` attribute whose value is `<related model>.<related model attribute>`. For example, if we want to include the `username` of the associated `User`, we set the source to `user.username`.
 

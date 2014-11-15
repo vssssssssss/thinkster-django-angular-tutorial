@@ -9,7 +9,7 @@ To register a user, we need an API endpoint that will create the user, an Angula
 Open `authentication/views.py` and replace it's contents with the following code:
 
     from django.contrib.auth.models import User
-    from rest_frameworks import generics
+    from rest_framework import generics
     from authentication.serializers import UserSerializer
 
 
@@ -103,6 +103,8 @@ Make a file in `static/javascripts/authentication/services/` called `authenticat
             email: email
           });
         }
+      }
+    )();
 
 {x: angularjs_authentication_service}
 Make a factory called `Authentication` in `static/javascripts/authentication/services/authentication.service.js`

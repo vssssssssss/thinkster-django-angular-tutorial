@@ -107,13 +107,17 @@ Let's add some more methods to our `Authentication` service. We will do this in 
 Open `static/javascripts/authentication/services/authentication.service.js` and add the following method to the `Authentication` object we created earlier:
 
     /**
-     * @name logout
-     * @desc Try to log the user out
+     * @name login
+     * @desc Try to log in with username `username` and password `password`
+     * @param {string} username The username entered by the user
+     * @param {string} password The password entered by the user
      * @returns {Promise}
      * @memberOf thinkster.authentication.services.Authentication
      */
-    function logout() {
-      return $http.post('/api/v1/auth/logout/')
+    function login(username, password) {
+      return $http.post('/api/v1/auth/login/', {
+        username: username, password: password
+      });
     }
 
 Make sure to expose it as part of the service:
@@ -325,7 +329,7 @@ Create a file in `static/javascripts/authentication/controllers/` called `login.
     })();
 
 {x: angularjs_login_controller}
-Make a controller called `LoginController` in `static/javascripts/authentication/controllers/login.controller.js
+Make a controller called `LoginController` in `static/javascripts/authentication/controllers/login.controller.js`
 
 Let's look at the `activate` function.
 
