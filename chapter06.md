@@ -152,11 +152,22 @@ Replace the contents of `posts/views.py` with the following:
                 return (IsAuthenticatedAndOwnsObject(),)
             return (permissions.AllowAny(),)
 
+    class UserPostsListView(generics.ListAPIView):
+        serializer_class = PostSerializer
+
+        def get_queryset(self):
+            return Post.objects.filter(
+                author__user__username=self.kwargs['username']
+            )
+
 {x: django_view_post_listcreate}
 Make a view for listing and creating `Post` objects
 
 {x: django_view_post_retrieveupdatedestroy}
 Make a view for reading, updating, and destroying `Post` objects
+
+{x: django_view_user_post_list}
+Make a view for listing `Post` objects by username
 
 Do these views look similar? They aren't that different than the ones we made to create `User` objects.
 
@@ -243,10 +254,12 @@ With the views created, it's time to add the endpoints to our API.
 Open `thinkster_django_angular_boilerplate/urls.py` and add the following urls:
 
     from posts.views import PostListCreateView, \
-        PostRetrieveUpdateDestroyView
+        PostRetrieveUpdateDestroyView, UserPostsListView
 
     urlpatterns = patterns(
         # ...,
+        url(r'^api/v1/users/(?P<username>[a-zA-Z0-9_@+-]+)/posts/$',
+            UserPostsListView.as_view(), name='profile-posts'),
         url(r'^api/v1/posts/$', PostListCreateView.as_view(), name='posts'),
         url(r'^api/v1/posts/(?P<pk>[0-9]+)/$',
             PostRetrieveUpdateDestroyView.as_view(), name='post'),

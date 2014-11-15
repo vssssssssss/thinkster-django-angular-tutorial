@@ -216,7 +216,7 @@ Create `static/templates/profiles/profile.html` with the following content:
         <p class="profile__tagline">{{ vm.profile.tagline }}</p>
       </div>
 
-      <posts posts="posts"></posts>
+      <posts posts="vm.posts"></posts>
     </div>
 
 {x: profile_template}

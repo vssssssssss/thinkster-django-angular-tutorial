@@ -81,7 +81,8 @@ Create a file at `static/javascripts/posts/services/` called `posts.service.js` 
       function Posts($http) {
         var Posts = {
           all: all,
-          create: create
+          create: create,
+          get: get
         };
 
         return Posts;
@@ -110,6 +111,17 @@ Create a file at `static/javascripts/posts/services/` called `posts.service.js` 
           return $http.post('/api/v1/posts/', {
             content: content
           });
+        }
+
+        /**
+         * @name get
+         * @desc Get the Posts of a given user
+         * @param {string} username The username to get Posts for
+         * @returns {Promise}
+         * @memberOf thinkster.posts.services.Posts
+         */
+        function get(username) {
+          return $http.get('/api/v1/users/' + username + '/posts/');
         }
       }
     })();
@@ -272,7 +284,7 @@ Create `static/javascripts/posts/directives/posts.directive.js` with the followi
           scope: {
             posts: '='
           },
-          templateUrl: '/static/templates/thoughts/thoughts.html'
+          templateUrl: '/static/templates/posts/posts.html'
         };
 
         return directive;
@@ -508,7 +520,7 @@ Create `static/javascripts/posts/directives/post.directive.js` with the followin
           scope: {
             post: '='
           },
-          templateUrl: '/static/templates/thoughts/thought.html'
+          templateUrl: '/static/templates/posts/post.html'
         };
 
         return directive;

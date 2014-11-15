@@ -6,7 +6,7 @@ We only want this button to show up on the index page for now, so open `static/t
     <a class="btn btn-primary btn-fab btn-raised mdi-content-add btn-add-new-post"
       href="javascript:void(0)"
       ng-show="vm.isAuthenticated"
-      ng-dialog="/static/templates/thoughts/new-thought.html"
+      ng-dialog="/static/templates/posts/new-post.html"
       ng-dialog-controller="NewPostController as vm"></a>
 
 The anchor tag in this snippet uses the `ngDialog` directive we included as a dependency earlier to show a modal when the user wants to submit a new post.
@@ -26,7 +26,7 @@ Now we need to create the form the user will type their new post into. Open `sta
 
     <form role="form" ng-submit="vm.submit()">
       <div class="form-group">
-        <label for="post__content">Thought</label>
+        <label for="post__content">New Post</label>
         <textarea class="form-control" 
                   id="post__content" 
                   rows="3" 
