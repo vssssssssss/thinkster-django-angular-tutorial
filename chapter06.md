@@ -4,7 +4,7 @@ In this section we will make a new app and create a `Post` model similar to a st
 ## Making a posts app
 First things first: go ahead and create a new app called `posts`.
 
-    $ python manage.py start app posts
+    $ python manage.py startapp posts
 
 {x: django_app_posts}
 Make a new app named `posts`
