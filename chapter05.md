@@ -137,7 +137,7 @@ Create a file in `static/javascripts/layout/controllers/` called `navbar.control
     })();
 
 {x: angularjs_navbar_controller}
-Create a `NavbarController` in `static/javascripts/static/controllers/navbar.controller.js`
+Create a `NavbarController` in `static/javascripts/layout/controllers/navbar.controller.js`
 
 Open `templates/navbar.html` and add an `mg-controller` directive with the value `NavbarController` to the `<nav />` tag like so:
 
