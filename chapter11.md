@@ -10,3 +10,11 @@ This is the stuff that we do as engineers of the web. There will be times when y
 Be proud of what you've accomplished here and tell you friends by [tweeting about it](https://twitter.com/intent/tweet?text=I%20just%20built%20a%20Google%20Plus%20clone%20with%20%23django%20and%20%23angularjs!&url=http%3A%2F%2Fthinkster.io%2F&via=gothinkster). We hope that you enjoyed this tutorial and will come back when you want to learn more. As always, our inbox is open to your comments, suggestions, and feedback.
 
 Happy hacking!
+
+## Contributors
+
+Before you go, I want to give a shoutout to all of the people who were kind enough to send us emails and pull requests.
+
+Here is a full list of contributors who helped with the current release:
+
+Albert Pai, Christophe Blefari, Eric Simons, Ernest Ezis, James Brewer, Martin Hill, Matt Greene, Seth Clossman, Vladimir Vitvitskiy, Zach Reinhardt

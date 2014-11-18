@@ -42,7 +42,7 @@ Now that we have created the view, we need to add it to the URLs file. Open `thi
         # ... URLs
         url('^api/v1/users/$', UserCreateView.as_view(), name='user-create'),
 
-        url(r'^', TemplateView.as_view(template_name='static/index.html')),
+        url(r'^', TemplateView.as_view(template_name='index.html')),
     )
 
 {x: url_user_create}
@@ -238,7 +238,7 @@ This is similar to the way we registered our service. The difference is that, th
 
 `vm` allows the template we just created to access the `register` method we define later in the controller.
 
-    Authentication.register(vm..username, vm..password, vm..email);
+    Authentication.register(vm.username, vm.password, vm.email);
 
 Here we call the service we created a few minutes ago. We pass in a username, password and email from `vm`. 
 
