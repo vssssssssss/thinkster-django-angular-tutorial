@@ -1,4 +1,18 @@
-# Introduction
+<style type="text/css">
+  .brewer-note {
+    background: rgba(0, 0, 0, 0.05);
+    border-radius: 3px;
+    margin: 0 -10px 20px;
+    padding: 10px;
+    text-align: center;
+  }
+
+  .brewer-note p:last-of-type {
+    margin-bottom: 0;
+  }
+</style>
+
+#Learning Django and AngularJS
 In this tutorial you will build a simplified Google+ clone called “Not Google Plus” with Django and AngularJS.
 
 Before we hit the proverbial books and learn to build a rich, modern web application with Django and Angular, let's take a moment to explore the motivations behind this tutorial and how you can get the most out of it.
@@ -61,9 +75,19 @@ The application we will be building requires a non-trivial amount of boilerplate
 
 You can find the boilerplate project on Github at [brwr/thinkster-django-angular-boilerplate](https://github.com/brwr/thinkster-django-angular-boilerplate). The repository includes a list of commands you need to run to get everything running.
 
-*NOTE: The boilerplate project requires PostgreSQL to be installed. You can download PostgreSQL [here](http://www.postgresql.org/download/).*
+<div>
+  <strong>Note</strong>
+  <div class="brewer-note">
+    <p>The boilerplate project requires PostgreSQL to be installed. You can download PostgreSQL [here](http://www.postgresql.org/download/).</p>
+  </div>
+</div>
 
-*NOTE: If you are interested in a detailed appendix on setting up your environment, reach out to [@jamesbrwr](http://twitter.com/jamesbrwr) on Twitter.*
+<div>
+  <strong>Note</strong>
+  <div class="brewer-note">
+    <p>If you are interested in a detailed appendix on setting up your environemnt, reach out to [@jamesbrewer](http://twitter.com/jamesbrwr) on Twitter.</p>
+  </div>
+</div>
 
 Go ahead and follow the setup instructions now.
 
