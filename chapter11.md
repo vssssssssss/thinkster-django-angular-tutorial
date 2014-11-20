@@ -17,4 +17,4 @@ Before you go, I want to give a shoutout to all of the people who were kind enou
 
 Here is a full list of contributors who helped with the current release:
 
-Albert Pai, Christophe Blefari, Eric Simons, Ernest Ezis, James Brewer, Martin Hill, Matt Greene, Seth Clossman, Vladimir Vitvitskiy, Zach Reinhardt
+Albert Pai, Christophe Blefari, Diego Martinez, Eric Simons, Ernest Ezis, James Brewer, Martin Hill, Matt Greene, Ronald Paloschi, Seth Clossman, Vladimir Vitvitskiy, Zach Reinhardt

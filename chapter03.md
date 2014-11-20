@@ -3,59 +3,111 @@ At this point we have the models and serializers needed to represent users. Now 
 
 Because we can't log in users that don't exist, it makes sense to start with registration. 
 
-To register a user, we need an API endpoint that will create the user, an AngularJS service to make an AJAX request to the API and a registration form. Let's make the API endpoint first.
+To register a user, we need an API endpoint that will create an `Account` object, an AngularJS service to make an AJAX request to the API and a rgeistration form. Let's make the API endpoint first.
 
-## Making the registration API view
+## Making the account API viewset
 Open `authentication/views.py` and replace it's contents with the following code:
 
-    from django.contrib.auth.models import User
-    from rest_framework import generics
-    from authentication.serializers import UserSerializer
+    from rest_framework import permissions, viewsets
+
+    from authentication.models import Account
+    from authentication.permissions import IsAccountOwner
+    from authentication.serializers import AccountSerializer
 
 
-    class UserCreateView(generics.CreateAPIView):
-        queryset = User.objects.all()
-        serializer_class = UserSerializer
+    class AccountViewSet(viewsets.ModelViewSet):
+        lookup_field = 'username'
+        queryset = Account.objects.all()
+        serializer_class = AccountSerializer
 
-{x: user_create_view}
-Make a view called `UserCreateView` in `authentication/views.py`
+        def get_permissions(self):
+            if self.request.method in permissions.SAFE_METHODS:
+                return (permissions.AllowAny(),)
+            return (permissions.IsAuthenticated(), IsAccountOwner(),)
+
+{x: create_account_viewset}
+Make a viewset called `AccountViewSet` in `authentication/views.py`
 
 Let's step through this snippet line-by-line:
 
-    class UserCreateView(generics.CreateAPIView):
+    class AccountViewSet(viewsets.ModelViewSet):
 
-Django REST Framework provides a number of generic API views that save you a lot of time. In this case, we are using `generics.CreateAPIView` which accepts a `POST` request and creates an object.
+Django REST Framework offers a feature called viewsets. A viewset, as the name implies, is a set a views. Specifically, the `ModelViewSet` offers an interface for listing, creating, retrieving, updating and destroying objects of a given model.
 
-    queryset = User.objects.all()
-    serializer_class = UserSerializer
+    lookup_field = 'username'
+    queryset = Account.objects.all()
+    serializer_class = AccountSerializer
 
-Here we define the query set and serializer that the view operates on. This is pretty standard for just about any generic view that comes with Django REST Framework. Not much can be explained about this without diving into the Django REST Framework source code (which I suggest you try!).
+Here we define the query set and the serialzier that the viewset will operate on. Django REST Framework uses the specified queryset and serializer to perform the actions listed above. Also note that we specify the `lookup_field` attribute. As mentioned earlier, we will use the `username` attribute of the `Account` model to look up accounts instead of the `id` attribute. Overriding `lookup_field` handles this for us.
+
+    def get_permissions(self):
+        if self.request.method in permissions.SAFE_METHODS:
+            return (permissions.AllowAny(),)
+        return (permissions.IsAuthenticated(), IsAccountOwner(),)
+
+The only user that should be able to call dangerous methods (such as `update()` and `delete()`) is the owner of the account. We first check if the user is authenticated and then call a custom permission that we will write in just a moment.
+
+If the HTTP method of the request ('GET', 'POST', etc) is "safe", then anyone can use that endpoint.
+
+## Making the IsAccountOwner permission
+Let's create the `IsAccountOwner()` permission from the view we just made.
+
+Create a file called `authentication/permissions.py` with the following content:
+
+    from rest_framework import permissions
+
+
+    class IsAccountOwner(permissions.BasePermission):
+        def has_object_permission(self, request, view, account):
+            if request.user:
+                return account == request.user
+            return False
+
+{x: is_account_owner_permission}
+Make a permission called `IsAccountOwner` in `authentication/permissions.py`
+
+This is a pretty basic permission. If there is a user associated with the current request, we check whether that user is the same object as `account`. If there is no user associated with this request, we simply return `False`.
 
 ## Adding an API endpoint
 Now that we have created the view, we need to add it to the URLs file. Open `thinkster_django_angular_boilerplate/urls.py` and update it to look like so:
 
     # .. Imports
-    from authentication.views import UserCreateView
+    from rest_framework_nested import routers
+
+    from authentication.views import AccountViewSet
+
+    router = routers.SimpleRouter()
+    router.register(r'accounts', AccountViewSet)
 
     urlpatterns = patterns(
          '',
         # ... URLs
-        url('^api/v1/users/$', UserCreateView.as_view(), name='user-create'),
+        url(r'^api/v1/', include(router.urls)),
 
         url(r'^', TemplateView.as_view(template_name='index.html')),
     )
 
-{x: url_user_create}
-Add an API endpoint for `UserCreateView`
+{x: url_account_view_set}
+Add an API endpoint for `AccountViewSet`
 
-*NOTE: It is very important that the last URL in the above snippet always be the last URL. This is known as a passthrough route. It accepts all requests not matched by any other rules and sends them to the front end for AngularJS to process. The order of other URLs is insignificant.*
+<div>
+  <strong>Note</strong>
+  <div class="brewer-note">
+    <p>It is very important that the last URL in the above snippet always be the last URL. This is known as a passthrough or catch-all route. It accepts all requests not matched by a previous rule and passes the request through to AngularJS's router for processing. The order of other URLS is normally insignificant.</p>
+  </div>
+</div>
 
 ## An Angular service for registering new users
 With the API endpoint in place, we can create an AngularJS service that will handle communication between the client and the server.
 
 Make a file in `static/javascripts/authentication/services/` called `authentication.service.js` and add the following code:
 
-*NOTE: Feel free to leave the comments out of your own code. It takes a lot to time to type them all out!*
+<div>
+  <strong>Note</strong>
+  <div class="brewer-note">
+    <p>Feel free to leave the comments out of your own code. It takes a lot of time to type them all out!</p>
+  </div>
+</div>
 
     /**
     * Authentication
@@ -96,8 +148,8 @@ Make a file in `static/javascripts/authentication/services/` called `authenticat
         * @returns {Promise}
         * @memberOf thinkster.authentication.services.Authentication
         */
-        function register(username, password, email) {
-          return $http.post('/api/v1/users/', {
+        function register(email, password, username) {
+          return $http.post('/api/v1/accounts/', {
             username: username,
             password: password,
             email: email
@@ -134,7 +186,7 @@ This is personal preference, but I find it's more readable to define your servic
 
 At this point, the `Authentication` service has only one method: `register`, which takes a `username`, `password`, and `email`. We will add more methods to the service as we move forward.
  
-    return $http.post('/api/v1/users/', {
+    return $http.post('/api/v1/accounts/', {
       username: username,
       password: password,
       email: email
@@ -152,13 +204,13 @@ Let's begin creating the interface users will use to register. Begin by creating
         <div class="well">
           <form role="form" ng-submit="vm.register()">
             <div class="form-group">
-              <label for="register__username">Username</label>
-              <input type="text" class="form-control" id="register__username" ng-model="vm.username" placeholder="ex. john" />
+              <label for="register__email">Email</label>
+              <input type="email" class="form-control" id="register__email" ng-model="vm.email" placeholder="ex. john@notgoogle.com" />
             </div>
 
             <div class="form-group">
-              <label for="register__email">Email</label>
-              <input type="email" class="form-control" id="register__email" ng-model="vm.email" placeholder="ex. john@notgoogle.com" />
+              <label for="register__username">Username</label>
+              <input type="text" class="form-control" id="register__username" ng-model="vm.username" placeholder="ex. john" />
             </div>
 
             <div class="form-group">
@@ -183,7 +235,7 @@ We won't go into much detail this time because this is pretty basic HTML. A lot 
 
 This is the line responsible for calling `$scope.register`, which we set up in our controller. `ng-submit` will call `vm.register` when the form is submitted. If you have used Angular before, you are probably used to using `$scope`. In this tutorial, we choose to avoid using `$scope` where possible in favor of `vm` for ViewModel. See the [Controllers](https://github.com/johnpapa/angularjs-styleguide#controllers) section of John Papa's AngularJS Style Guide for more on this.
 
-    <input type="text" class="form-control" id="register__username" ng-model="vm.username" placeholder="ex. john" />
+    <input type="email" class="form-control" id="register__email" ng-model="vm.email" placeholder="ex. john@notgoogle.com" />
 
 On each `<input />`, you will see another directive, `ng-model`. `ng-model` is responsible for storing the value of the input on the ViewModel. This is how we get the username, password, and email when `vm.register` is called.
 
@@ -219,7 +271,7 @@ Create a file in `static/javascripts/authentication/controllers/` called `regist
         * @memberOf thinkster.authentication.controllers.RegisterController
         */
         function register() {
-          Authentication.register(vm.username, vm.password, vm.email);
+          Authentication.register(vm.email, vm.password, vm.username);
         }
       }
     })();
@@ -238,7 +290,7 @@ This is similar to the way we registered our service. The difference is that, th
 
 `vm` allows the template we just created to access the `register` method we define later in the controller.
 
-    Authentication.register(vm.username, vm.password, vm.email);
+    Authentication.register(vm.email, vm.password, vm.username);
 
 Here we call the service we created a few minutes ago. We pass in a username, password and email from `vm`. 
 
@@ -447,12 +499,12 @@ Configure AngularJS CSRF settings
 ## Checkpoint
 Try registering a new user by running your server (`python manage.py runserver`), visiting `http://localhost:8000/register` in your browser and filling out the form.
 
-If the registration worked, you can view the last `User` object created by opening the shell (`python manage.py shell`) and running the following commands:
+If the registration worked, you can view the new `Account` object created by opening the shell (`python manage.py shell`) and running the following commands:
 
-    >>> from django.contrib.auth.models import User
-    >>> User.objects.latest('date_joined')
+    >>> from authentication.models import Account
+    >>> Account.objects.latest('created_at')
 
-The `User` object returned should match the one you just created.
+The `Account` object returned should match the one you just created.
 
-{x: checkpoint_register_user}
-Register a new user at `http://localhost:8000/register` and confirm the `User` object was created
+{x: checkpoint_register_account}
+Register a new user at `http://localhost:8000/register` and confirm the `Account` object was created

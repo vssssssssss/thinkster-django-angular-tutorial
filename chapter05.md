@@ -11,12 +11,12 @@ Open up `authentication/views.py` and add the following imports and class:
     from rest_framework import permissions
 
     class LogoutView(views.APIView):
-         permission_classes = (permissions.IsAuthenticated,)
+        permission_classes = (permissions.IsAuthenticated,)
 
         def post(self, request, format=None):
             logout(request)
 
-            return Response({ 'success': True })
+            return Response({}, status=status.HTTP_204_NO_CONTENT)
 
 {x: django_logout_view}
 Make a view called `LogoutView` in `authentication/views.py`
@@ -31,7 +31,7 @@ Only authenticated users should be able to hit this endpoint. Django REST Framew
 
 If the user is authenticated, all we need to do is call Django's `logout()` method.
 
-    return Response({ 'success': True })
+    return Response({}, status=status.HTTP_204_NO_CONTENT)
 
 There isn't anything reasonable to return when logging out, so we just return an empty response with a `200` status code.
 

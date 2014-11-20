@@ -75,7 +75,7 @@ Create `static/javascripts/posts/controller/new-post.controller.js` with the fol
           $rootScope.$broadcast('post.created', {
             content: vm.content,
             author: {
-              username: Authentication.getAuthenticatedUser().username
+              username: Authentication.getAuthenticatedAccount().username
             }
           });
 
@@ -110,7 +110,7 @@ There are a few things going on here that we should talk about.
     $rootScope.$broadcast('post.created', {
       content: $scope.content,
       author: {
-        username: Authentication.getAuthenticatedUser().username
+        username: Authentication.getAuthenticatedAccount().username
       }
     });
 

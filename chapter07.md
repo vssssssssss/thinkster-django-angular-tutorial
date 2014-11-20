@@ -121,7 +121,7 @@ Create a file at `static/javascripts/posts/services/` called `posts.service.js` 
          * @memberOf thinkster.posts.services.Posts
          */
         function get(username) {
-          return $http.get('/api/v1/users/' + username + '/posts/');
+          return $http.get('/api/v1/accounts/' + username + '/posts/');
         }
       }
     })();
@@ -590,7 +590,7 @@ Add some CSS to `static/stylesheets/style.css` to make our posts look better
 ## Checkpoint
 Assuming all is well, you can confirm you're on the right track by loading `http://localhost:8000/` in your browser. You should see the `Post` object you created at the end of the last section!
 
-This also confirms that half of the `PostListCreateView` from the last section is working.
+This also confirms that `PostViewSet` from the last section is working.
 
 {x: checkpoint_render_posts}
 Visit `http://localhost:8000/` and confirm the `Post` object you made earlier is shown.

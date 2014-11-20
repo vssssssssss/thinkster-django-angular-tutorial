@@ -10,34 +10,35 @@ Open up `authentication/views.py` and add the following:
 
     from django.contrib.auth import authenticate, login
 
-    from rest_framework import status, views
+    from rest_framework improt status, views
     from rest_framework.response import Response
-
 
     class LoginView(views.APIView):
         def post(self, request, format=None):
             data = json.loads(request.body)
 
-            username = data.get('username', None)
+            email = data.get('email', None)
             password = data.get('password', None)
 
-            user = authenticate(username=username, password=password)
+            account = authenticate(email=email, password=password)
 
-            if user is not None:
-                if user.is_active:
-                    login(request, user)
+            if account is not None:
+                if account.is_active:
+                    login(request, account)
 
-                    serialized = UserSerializer(user)
+                    serialized = AccountSerializer(account)
 
                     return Response(serialized.data)
                 else:
                     return Response({
-                        'error': 'Awkward! Your account has been disabled.'
+                        'status': 'Unauthorized',
+                        'message': 'This account has been disabled.'
                     }, status=status.HTTP_401_UNAUTHORIZED)
             else:
                 return Response({
-                    'error': 'Looks like your username or password is wrong. :('
-                }, status=status.HTTP_400_BAD_REQUEST)
+                    'status': 'Unauthorized',
+                    'message': 'Username/password combination invalid.'
+                }, status=status.HTTP_401_UNAUTHORIZED)
 
 {x: django_login_view}
 Make a view called `LoginView` in `authentication/views.py`
@@ -52,50 +53,51 @@ You will notice that we are not using a generic view this time. Because this vie
 
 Unlike generic views, we must handle each HTTP verb ourselves. Logging in should typically be a `POST` request, so we override the `self.post()` method.
 
-    user = authenticate(username=username, password=password)
+    account = authenticate(email=email, password=password)
 
-Django provides a nice set of utilities for authenticating users. The `authenticate()` method is the first utility we will cover. `authenticate()` takes a username and a password. Django then checks the database for a `User` with `username` *username*. If one is found, Django will try to verify the given password. If the username and password are correct, the `User` found by `authenticate()` is returned. If either of these steps fail, `authenticate()` will return `None`.
+Django provides a nice set of utilities for authenticating users. The `authenticate()` method is the first utility we will cover. `authenticate()` takes an email and a password. Django then checks the database for an `Account` with email `email`. If one is found, Django will try to verify the given password. If the username and password are correct, the `Account` found by `authenticate()` is returned. If either of these steps fail, `authenticate()` will return `None`.
 
-    if user is not None:
+    if account is not None:
         # ...
     else:
         return Response({
-            'error': 'Looks like your username or password is wrong. :('
-        }, status=status.HTTP_400_BAD_REQUEST)
+            'status': 'Unauthorized',
+            'message': 'Username/password combination invalid.'
+        }, status=status.HTTP_401_UNAUTHORIZED)
 
-In the event that `authenticate()` returns `None`, we respond with a `400` status code and tell the user that the username/password combination they provided is invalid.
+In the event that `authenticate()` returns `None`, we respond with a `401` status code and tell the user that the email/password combination they provided is invalid.
 
-    if user.is_active:
+    if account.is_active:
         # ...
     else:
         return Response({
-            'error': 'Awkward! Your account has been disabled.'
+            'status': 'Unauthorized',
+            'message': 'This account has been disabled.'
         }, status=status.HTTP_401_UNAUTHORIZED)
 
 If the user's account is for some reason inactivate, we respond with a `401` status code. Here we simply say that the account has been disabled.
 
-    login(request, user)
+    login(request, account)
 
 If `authenticate()` success and the user is active, then we use Django's `login()` utility to create a new session for this user.
 
-    serialized = UserSerializer(user)
+    serialized = AccountSerializer(account)
 
     return Response(serialized.data)
 
-We want to store some information about this user in the browser if the login request succeeds, so we serialize the `User` object found by `authenticate()` and return the resulting JSON as the response.
+We want to store some information about this user in the browser if the login request succeeds, so we serialize the `Account` object found by `authenticate()` and return the resulting JSON as the response.
 
 ## Adding a login API endpoint
-Just as we did with the `UserCreateView`, we need to add a route for `LoginView`.
+Just as we did with `AccountViewSet`, we need to add a route for `LoginView`.
 
-Open up `thinkster_django_angular_boilerplate/settings.py` and add the following route:
+Open up `thinkster_django_angular_boilerplate/urls.py` and add the following URL between `^/api/v1/` and `^`:
 
-    from authentication.views import LoginView, UserCreateView
+    from authentication.views import LoginView
 
     urlpatterns = patterns(
         # ...
         url(r'^api/v1/auth/login/$', LoginView.as_view(), name='login'),
-
-        url(r'^', TemplateView.as_view(template_name='static/index.html')),
+        # ...
     )
 
 {x: url_login}
@@ -108,15 +110,15 @@ Open `static/javascripts/authentication/services/authentication.service.js` and 
 
     /**
      * @name login
-     * @desc Try to log in with username `username` and password `password`
-     * @param {string} username The username entered by the user
+     * @desc Try to log in with email `email` and password `password`
+     * @param {string} email The email entered by the user
      * @param {string} password The password entered by the user
      * @returns {Promise}
      * @memberOf thinkster.authentication.services.Authentication
      */
-    function login(username, password) {
+    function login(email, password) {
       return $http.post('/api/v1/auth/login/', {
-        username: username, password: password
+        email: email, password: password
       });
     }
 
@@ -138,25 +140,25 @@ We want to display information about the currently authenticated user in the nav
 
 *NOTE: Unauthenticating is different from logging out. When a user logs out, we need a way to remove all remaining session data from the client.*
 
-Given these requirements, I suggest three methods: `getAuthenticatedUser`, `isAuthenticated`, `setAuthenticatedUser`, and `unauthenticate`.
+Given these requirements, I suggest three methods: `getAuthenticatedAccount`, `isAuthenticated`, `setAuthenticatedAccount`, and `unauthenticate`.
 
 Let's implement these now. Add each of the following functions to the `Authentication` service:
 
     /**
-     * @name getAuthenticatedUser
-     * @desc Return the currently authenticated user
-     * @returns {object|undefined} User if authenticated, else `undefined`
+     * @name getAuthenticatedAccount
+     * @desc Return the currently authenticated account
+     * @returns {object|undefined} Account if authenticated, else `undefined`
      * @memberOf thinkster.authentication.services.Authentication
      */
-    function getAuthenticatedUser() {
-      if (!$cookies.authenticatedUser) {
+    function getAuthenticatedAccount() {
+      if (!$cookies.authenticatedAccount) {
         return;
       }
 
-      return JSON.parse($cookies.authenticatedUser);
+      return JSON.parse($cookies.authenticatedAccount);
     }
 
-If there is no `authenticatedUser` cookie (set in `setAuthenticatedUser()`), then return; otherwise return the parsed user object from the cookie.
+If there is no `authenticatedAccount` cookie (set in `setAuthenticatedAccount()`), then return; otherwise return the parsed user object from the cookie.
 
     /**
      * @name isAuthenticated
@@ -165,23 +167,23 @@ If there is no `authenticatedUser` cookie (set in `setAuthenticatedUser()`), the
      * @memberOf thinkster.authentication.services.Authentication
      */
     function isAuthenticated() {
-      return !!$cookies.authenticatedUser;
+      return !!$cookies.authenticatedAccount;
     }
 
-Return the boolean value of the `authenticatedUser` cookie. 
+Return the boolean value of the `authenticatedAccount` cookie. 
 
     /**
-     * @name setAuthenticatedUser
-     * @desc Stringify the user object and store it in a cookie
-     * @param {Object} user The user object to be stored
+     * @name setAuthenticatedAccount
+     * @desc Stringify the account object and store it in a cookie
+     * @param {Object} user The account object to be stored
      * @returns {undefined}
      * @memberOf thinkster.authentication.services.Authentication
      */
-    function setAuthenticatedUser(user) {
-      $cookies.authenticatedUser = JSON.stringify(user);
+    function setAuthenticatedAccount(account) {
+      $cookies.authenticatedAccount = JSON.stringify(account);
     }
 
-Set the `authenticatedUser` cookie to a stringified version of the `user` object.
+Set the `authenticatedAccount` cookie to a stringified version of the `account` object.
 
     /**
      * @name unauthenticate
@@ -190,47 +192,47 @@ Set the `authenticatedUser` cookie to a stringified version of the `user` object
      * @memberOf thinkster.authentication.services.Authentication
      */
     function unauthenticate() {
-      delete $cookies.authenticatedUser;
+      delete $cookies.authenticatedAccount;
     }
 
-Remove the `authenticatedUser` cookie.
+Remove the `authenticatedAccount` cookie.
 
 Again, don't forget to expose these methods as part of the service:
 
     var Authentication = {
-      getAuthenticatedUser: getAuthenticatedUser,
+      getAuthenticatedAccount: getAuthenticatedAccount,
       isAuthenticated: isAuthenticated,
       login: login,
       register: register,
-      setAuthenticatedUser: setAuthenticatedUser,
+      setAuthenticatedAccount: setAuthenticatedAccount,
       unauthenticate: unauthenticate
     };
 
 
 {x: angularjs_authentication_service_utilities}
-Add `getAuthenticatedUser`, `isAuthenticated`, `setAuthenticatedUser`, and `unauthenticate` methods to your `Authentication` service
+Add `getAuthenticatedAccount`, `isAuthenticated`, `setAuthenticatedAccount`, and `unauthenticate` methods to your `Authentication` service
 
 Before we move on to the login interface, let's quickly update the `login` method of the `Authentication` service to use one of these new utility methods. Replace `Authentication.login` with the following:
 
     /**
      * @name login
-     * @desc Try to log in with username `username` and password `password`
-     * @param {string} username The username entered by the user
+     * @desc Try to log in with email `email` and password `password`
+     * @param {string} email The email entered by the user
      * @param {string} password The password entered by the user
      * @returns {Promise}
      * @memberOf thinkster.authentication.services.Authentication
      */
-    function login(username, password) {
+    function login(email, password) {
       return $http.post('/api/v1/auth/login/', {
-        username: username, password: password
+        email: email, password: password
       }).then(loginSuccessFn, loginErrorFn);
 
       /**
        * @name loginSuccessFn
-       * @desc Set the authenticated user and redirect to index
+       * @desc Set the authenticated account and redirect to index
        */
       function loginSuccessFn(data, status, headers, config) {
-        Authentication.setAuthenticatedUser(data.data);
+        Authentication.setAuthenticatedAccount(data.data);
 
         window.location = '/';
       }
@@ -243,6 +245,7 @@ Before we move on to the login interface, let's quickly update the `login` metho
         console.error('Epic failure!');
       }
     }
+
 
 {x: update_authentication_login}
 Update `Authentication.login` to use our new utility methods
@@ -259,8 +262,8 @@ We now have `Authentication.login()` to log a user in, so let's create the login
             <div class="alert alert-danger" ng-show="error" ng-bind="error"></div>
 
             <div class="form-group">
-              <label for="login__username">Username</label>
-              <input type="text" class="form-control" id="login__username" ng-model="vm.username" placeholder="ex. john" />
+              <label for="login__email">Email</label>
+              <input type="text" class="form-control" id="login__email" ng-model="vm.email" placeholder="ex. john@example.com" />
             </div>
 
             <div class="form-group">
@@ -323,7 +326,7 @@ Create a file in `static/javascripts/authentication/controllers/` called `login.
         * @memberOf thinkster.authentication.controllers.LoginController
         */
         function login() {
-          Authentication.login(vm.username, vm.password);
+          Authentication.login(vm.email, vm.password);
         }
       }
     })();
@@ -373,14 +376,14 @@ Replace `Authentication.register` when the following:
     /**
     * @name register
     * @desc Try to register a new user
-    * @param {string} username The username entered by the user
-    * @param {string} password The password entered by the user
     * @param {string} email The email entered by the user
+    * @param {string} password The password entered by the user
+    * @param {string} username The username entered by the user
     * @returns {Promise}
     * @memberOf thinkster.authentication.services.Authentication
     */
-    function register(username, password, email) {
-      return $http.post('/api/v1/users/', {
+    function register(email, password, username) {
+      return $http.post('/api/v1/accounts/', {
         username: username,
         password: password,
         email: email
@@ -391,7 +394,7 @@ Replace `Authentication.register` when the following:
       * @desc Log the new user in
       */
       function registerSuccessFn(data, status, headers, config) {
-        Authentication.login(username, password);
+        Authentication.login(email, password);
       }
 
       /**
@@ -424,7 +427,12 @@ Open up `static/javascripts/thinkster.routes.js` and add a route for the login f
 {x: angularjs_login_route}
 Add a route for `LoginController`
 
-*NOTE: See how you can chain calls to `$routeProvider.when()`? Going forward, we will ignore old routes for brevity. Just keep in mind that these calls should be chained and that the first route matched will take control.*
+<div>
+  <strong>Note</strong>
+  <div class="brewer-note">
+    <p>See how you can chain calls to `$routeProvider.when()`? Going forward, we will ignore old routes for brevity. Just keep in mind that these calls should be chained and that the first route matched will take control.</p>
+  </div>
+</div>
 
 ## Include new .js files
 If you can believe it, we've only created one new JavaScript file since the last time: `login.controller.js`. Let's add it to `javascripts.html` with the other JavaScript files:

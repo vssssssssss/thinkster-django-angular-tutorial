@@ -37,16 +37,16 @@ To get started, open `static/javascripts/profiles/controllers/profile-settings.c
         * @memberOf thinkster.profiles.controllers.ProfileSettingsController
         */
         function activate() {
-          var authenticatedUser = Authentication.getAuthenticatedUser();
+          var authenticatedAccount = Authentication.getAuthenticatedAccount();
           var username = $routeParams.username.substr(1);
 
           // Redirect if not logged in
-          if (!authenticatedUser) {
+          if (!authenticatedAccount) {
             $location.url('/');
             Snackbar.error('You are not authorized to view this page.');
           } else {
             // Redirect if logged in, but not the owner of this profile.
-            if (authenticatedUser.username !== username) {
+            if (authenticatedAccount.username !== username) {
               $location.url('/');
               Snackbar.error('You are not authorized to view this page.');
             }
@@ -64,7 +64,7 @@ To get started, open `static/javascripts/profiles/controllers/profile-settings.c
 
           /**
           * @name profileErrorFn
-          * @desc Redirec to index
+          * @desc Redirect to index
           */
           function profileErrorFn(data, status, headers, config) {
             $location.url('/');
@@ -151,16 +151,16 @@ Most of this controller should look familiar, but let's go over the methods we'v
      * @memberOf thinkster.profiles.controllers.ProfileSettingsController
      */
     function activate() {
-      var authenticatedUser = Authentication.getAuthenticatedUser();
+      var authenticatedAccount = Authentication.getAuthenticatedAccount();
       var username = $routeParams.username.substr(1);
 
       // Redirect if not logged in
-      if (!authenticatedUser) {
+      if (!authenticatedAccount) {
         $location.url('/');
         Snackbar.error('You are not authorized to view this page.');
       } else {
         // Redirect if logged in, but not the owner of this profile.
-        if (authenticatedUser.username !== username) {
+        if (authenticatedAccount.username !== username) {
           $location.url('/');
           Snackbar.error('You are not authorized to view this page.');
         }
@@ -252,27 +252,42 @@ If for some reason destroying the user's profile returns an error status code, w
 
 `update()` is very simple. Whether the call succeeds or fails, we show a snackbar with the appropriate message.
 
-## settings.html
+## A template for the settings page
 As usual, now that we have the controller we need to make a corresponding template.
 
 Create `static/templates/profiles/settings.html` with the following content:
 
     <div class="col-md-4 col-md-offset-4">
-      <div class="well" ng-show="vm.profile">
+      <div class="well" ng-show="vm.account">
         <form role="form" class="settings" ng-submit="vm.update()">
           <div class="form-group">
             <label for="settings__email">Email</label>
-            <input type="text" class="form-control" id="settings__email" ng-model="vm.profile.email" placeholder="ex. john@example.com" />
+            <input type="text" class="form-control" id="settings__email" ng-model="vm.account.email" placeholder="ex. john@example.com" />
+          </div>
+
+          <div class="form-group">
+            <label for="settings__password">New Password</label>
+            <input type="password" class="form-control" id="settings__password" ng-model="vm.account.password" placeholder="ex. notgoogleplus" />
+          </div>
+
+          <div class="form-group">
+            <label for="settings__confirm-password">Confirm Password</label>
+            <input type="password" class="form-control" id="settings__confirm-password" ng-model="vm.account.confirm_password" placeholder="ex. notgoogleplus" />
+          </div>
+
+          <div class="form-group">
+            <label for="settings__username">Username</label>
+            <input type="text" class="form-control" id="settings__username" ng-model="vm.account.username" placeholder="ex. notgoogleplus" />
           </div>
 
           <div class="form-group">
             <label for="settings__tagline">Tagline</label>
-            <textarea class="form-control" id="settings__tagline" ng-model="vm.profile.tagline" placeholder="ex. This is Not Google Plus." />
+            <textarea class="form-control" id="settings__tagline" ng-model="vm.account.tagline" placeholder="ex. This is Not Google Plus." />
           </div>
 
           <div class="form-group">
             <button type="submit" class="btn btn-primary">Submit</button>
-            <button type="button" class="btn btn-danger pull-right" ng-click="vm.profile.destroy()">Delete Account</button>
+            <button type="button" class="btn btn-danger pull-right" ng-click="vm.account.destroy()">Delete Account</button>
           </div>
         </form>
       </div>
