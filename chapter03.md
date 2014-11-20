@@ -23,7 +23,27 @@ Open `authentication/views.py` and replace it's contents with the following code
         def get_permissions(self):
             if self.request.method in permissions.SAFE_METHODS:
                 return (permissions.AllowAny(),)
+
+            if self.request.method == 'POST':
+                return (permissions.AllowAny(),)
+
             return (permissions.IsAuthenticated(), IsAccountOwner(),)
+
+        def create(self, request):
+            serializer = self.serializer_class(data=request.DATA)
+
+            if serializer.is_valid():
+                account = Account.objects.create_user(**request.DATA)
+
+                account.set_password(request.DATA.get('password'))
+                account.save()
+
+                return Response(serializer.data, status=status.HTTP_201_CREATED)
+            return Response({
+                'status': 'Bad request',
+                'message': 'Account could not be created with received data.'
+            }, status=status.HTTP_400_BAD_REQUEST)
+
 
 {x: create_account_viewset}
 Make a viewset called `AccountViewSet` in `authentication/views.py`
@@ -43,11 +63,36 @@ Here we define the query set and the serialzier that the viewset will operate on
     def get_permissions(self):
         if self.request.method in permissions.SAFE_METHODS:
             return (permissions.AllowAny(),)
+        
+        if self.request.method == 'POST':
+            return (permissions.AllowAny(),)
+
         return (permissions.IsAuthenticated(), IsAccountOwner(),)
 
-The only user that should be able to call dangerous methods (such as `update()` and `delete()`) is the owner of the account. We first check if the user is authenticated and then call a custom permission that we will write in just a moment.
+The only user that should be able to call dangerous methods (such as `update()` and `delete()`) is the owner of the account. We first check if the user is authenticated and then call a custom permission that we will write in just a moment. This case does not hold when the HTTP method is `POST`. We want to allow any user to create an account.
 
 If the HTTP method of the request ('GET', 'POST', etc) is "safe", then anyone can use that endpoint.
+
+    def create(self, request):
+        serializer = self.serializer_class(data=request.DATA)
+
+        if serializer.is_valid():
+            account = Account.objects.create_user(**request.DATA)
+
+            account.set_password(request.DATA.get('password'))
+            account.save()
+
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response({
+            'status': 'Bad request',
+            'message': 'Account could not be created with received data.'
+        }, status=status.HTTP_400_BAD_REQUEST)
+
+In Django, there is a specific method used for setting passwords: `set_password`. This method handles hashing and salting passwords so they are not stored in plaintext. Furthermore, the `authenticate` method we saw earlier expects passwords to be hashed and salted, so we can't authenticate with plaintext passwords anyways.
+
+For these reasons, we must override the `create` method for this viewset. Assuming the information we received creates a valid serializer, we go ahead and create an `Account` object using the `create_user` method from earlier.
+
+After the `Account` is saved we move on to setting the password and saving the object again. The response is either a `201` or a `400`, depending on the serializer's validity.
 
 ## Making the IsAccountOwner permission
 Let's create the `IsAccountOwner()` permission from the view we just made.
