@@ -152,6 +152,118 @@ Create the index template
 
 We will add a little more later, but not much. Most of what we need will be in the template we create for the posts directive next.
 
+## Making a Snackbar service
+In the boilerplate project for this tutorial, we've included SnackbarJS. SnackbarJS is a small JavaScript library that makes showing snackbars (a concept from Google's Material Design) easy. Here, we will create a service to include this functionality in our AngularJS application.
+
+Open `static/javascripts/utils/services/snackbar.service.js` and add the following:
+
+    /**
+    * Snackbar
+    * @namespace thinkster.utils.services
+    */
+    (function ($, _) {
+      'use strict';
+
+      angular
+        .module('thinkster.utils.services')
+        .factory('Snackbar', Snackbar);
+
+      /**
+      * @namespace Snackbar
+      */
+      function Snackbar() {
+        /**
+        * @name Snackbar
+        * @desc The factory to be returned
+        */
+        var Snackbar = {
+          error: error,
+          show: show
+        };
+
+        return Snackbar;
+
+        ////////////////////
+        
+        /**
+        * @name _snackbar
+        * @desc Display a snackbar
+        * @param {string} content The content of the snackbar
+        * @param {Object} options Options for displaying the snackbar
+        */
+        function _snackbar(content, options) {
+          options = _.extend({ timeout: 3000 }, options);
+          options.content = content;
+
+          $.snackbar(options);
+        }
+
+
+        /**
+        * @name error
+        * @desc Display an error snackbar
+        * @param {string} content The content of the snackbar
+        * @param {Object} options Options for displaying the snackbar
+        * @memberOf thinkster.utils.services.Snackbar
+        */
+        function error(content, options) {
+          _snackbar('Error: ' + content, options);
+        }
+
+
+        /**
+        * @name show
+        * @desc Display a standard snackbar
+        * @param {string} content The content of the snackbar
+        * @param {Object} options Options for displaying the snackbar
+        * @memberOf thinkster.utils.services.Snackbar
+        */
+        function show(content, options) {
+          _snackbar(content, options);
+        }
+      }
+    })($, _);
+
+{x: angularjs_snackbar_service}
+Make a `Snackbar` service
+
+Don't forget to set up your modules. Open `static/javascripts/utils/utils.module.js` and add the following:
+
+    (function () {
+      'use strict';
+
+      angular
+        .module('thinkster.utils', [
+          'thinkster.utils.services'
+        ]);
+
+      angular
+        .module('thinkster.utils.services', []);
+    })();
+
+And make `thinksters.utils` a dependency of `thinkster` in `static/javascripts/thinkster.js`:
+
+    angular
+      .module('thinkster', [
+        // ...
+        'thinkster.utils',
+        // ...
+      ]);
+
+{x: angularjs_utils_module}
+Set up your modules for the `thinkster.utils` module
+
+{x: angularjs_include_utils}
+Make `thinkster.utils` a dependency of `thinkster`
+
+The last step for this service is to include the new JavaScript files in `javascripts.html`:
+
+    <script type="text/javascript" src="{% static 'javascripts/utils/utils.module.js' %}"></script>
+    <script type="text/javascript" src="{% static 'javascripts/utils/services/snackbar.service.js' %}"></script>
+
+{x: include_utils_js}
+Include `utils.module.js` and `snackbar.service.js` in `javascripts.html`
+
 ## Controlling the index interface with IndexController
 Create a file in `static/javascripts/layout/controllers/` called `index.controller.js` and add the following:
 
