@@ -9,7 +9,9 @@ To register a user, we need an API endpoint that will create an `Account` object
 Open `authentication/views.py` and replace it's contents with the following code:
 
     from rest_framework import permissions, viewsets
-
+    from rest_framework.response import Response
+    from rest_framework import status
+    
     from authentication.models import Account
     from authentication.permissions import IsAccountOwner
     from authentication.serializers import AccountSerializer
